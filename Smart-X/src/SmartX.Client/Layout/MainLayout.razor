@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+﻿@using System.Net.Http.Json
+@using SmartX.Client.Models
+@inherits LayoutComponentBase
+@inject HttpClient HttpClient
 
 <div class="ambient-grid" aria-hidden="true"></div>
 <div class="ambient-orb ambient-orb-one" aria-hidden="true"></div>
@@ -15,14 +18,37 @@
             </div>
 
             <div class="topbar-actions">
-                <div class="system-state">
-                    <span class="system-state-dot" aria-hidden="true"></span>
+                <button class="system-state @GatewayStateCssClass"
+                        type="button"
+                        title="Refresh gateway connection"
+                        aria-label="Refresh gateway connection"
+                        aria-live="polite"
+                        disabled="@isCheckingGateway"
+                        @onclick="CheckGatewayAsync">
 
-                    <span>
-                        <strong>Interface ready</strong>
-                        <small>Gateway connection follows</small>
+                    @if (isCheckingGateway)
+                    {
+                        <span class="system-state-spinner"
+                              aria-hidden="true">
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="system-state-dot"
+                              aria-hidden="true">
+                        </span>
+                    }
+
+                    <span class="system-state-copy">
+                        <strong>@gatewayStatusLabel</strong>
+                        <small>@gatewayStatusDetail</small>
                     </span>
-                </div>
+
+                    <span class="refresh-symbol"
+                          aria-hidden="true">
+                        ↻
+                    </span>
+                </button>
 
                 <div class="avatar"
                      title="Smart-X Operator"
@@ -38,7 +64,10 @@
 
         <footer class="application-footer">
             <span>Smart-X Intelligent IoT Gateway</span>
-            <span>Secure by design · Built with ASP.NET Core</span>
+
+            <span>
+                Secure by design · Built with ASP.NET Core
+            </span>
         </footer>
     </section>
 </div>
@@ -49,3 +78,114 @@
     <a href="" class="reload">Reload</a>
     <span class="dismiss">×</span>
 </div>
+
+@code {
+    private GatewayConnectionState gatewayState =
+        GatewayConnectionState.Connecting;
+
+    private string gatewayStatusLabel = "Connecting";
+
+    private string gatewayStatusDetail =
+        "Checking the Smart-X API";
+
+    private bool isCheckingGateway;
+
+    private string GatewayStateCssClass =>
+        gatewayState switch
+        {
+            GatewayConnectionState.Online =>
+                "system-state-online",
+
+            GatewayConnectionState.Offline =>
+                "system-state-offline",
+
+            _ =>
+                "system-state-connecting"
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckGatewayAsync();
+    }
+
+    private async Task CheckGatewayAsync()
+    {
+        if (isCheckingGateway)
+        {
+            return;
+        }
+
+        isCheckingGateway = true;
+        gatewayState = GatewayConnectionState.Connecting;
+        gatewayStatusLabel = "Connecting";
+        gatewayStatusDetail = "Checking the Smart-X API";
+
+        try
+        {
+            using CancellationTokenSource timeout =
+                new(TimeSpan.FromSeconds(8));
+
+            GatewayHealthResponse? response =
+                await HttpClient.GetFromJsonAsync<GatewayHealthResponse>(
+                    "api/gateway/health",
+                    timeout.Token);
+
+            if (response is null)
+            {
+                SetGatewayOffline(
+                    "The API returned an empty response");
+
+                return;
+            }
+
+            gatewayState = GatewayConnectionState.Online;
+
+            gatewayStatusLabel =
+                string.IsNullOrWhiteSpace(response.Status)
+                    ? "Gateway online"
+                    : response.Status;
+
+            gatewayStatusDetail =
+                $"API v{response.ApiVersion} · Checked " +
+                $"{DateTimeOffset.Now:HH:mm:ss}";
+        }
+        catch (HttpRequestException)
+        {
+            SetGatewayOffline(
+                "Start SmartX.Api and try again");
+        }
+        catch (TaskCanceledException)
+        {
+            SetGatewayOffline(
+                "The API request timed out");
+        }
+        catch (NotSupportedException)
+        {
+            SetGatewayOffline(
+                "The API returned an unsupported response");
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            SetGatewayOffline(
+                "The API response could not be read");
+        }
+        finally
+        {
+            isCheckingGateway = false;
+        }
+    }
+
+    private void SetGatewayOffline(string detail)
+    {
+        gatewayState = GatewayConnectionState.Offline;
+        gatewayStatusLabel = "Gateway offline";
+        gatewayStatusDetail = detail;
+    }
+
+    private enum GatewayConnectionState
+    {
+        Connecting,
+        Online,
+        Offline
+    }
+}
