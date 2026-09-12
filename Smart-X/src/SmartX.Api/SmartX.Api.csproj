@@ -15,5 +15,9 @@
     <ProjectReference Include="..\SmartX.Domain\SmartX.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Controllers\" />
+  </ItemGroup>
+
 </Project>
 
