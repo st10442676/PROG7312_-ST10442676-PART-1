@@ -1,0 +1,602 @@
+﻿@page "/sensors/register"
+
+@using System.Net.Http.Json
+@using System.Text.Json
+@using SmartX.Client.Models
+
+@inject HttpClient HttpClient
+
+<PageTitle>Register Sensor | Smart-X</PageTitle>
+
+<section class="registration-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Sensor onboarding</p>
+
+            <h1>Connect a new signal.</h1>
+
+            <p>
+                Register an IoT sensor with its unique identity,
+                deployment location, category, and telemetry publishing
+                schedule.
+            </p>
+        </div>
+
+        <div class="heading-status">
+            <span class="heading-status-icon" aria-hidden="true">01</span>
+
+            <span>
+                <strong>Registration</strong>
+                <small>Part 1 active workflow</small>
+            </span>
+        </div>
+    </header>
+
+    <div class="registration-layout">
+        <section class="registration-card"
+                 aria-labelledby="registration-form-heading">
+
+            <div class="card-heading">
+                <div>
+                    <span class="card-step">Device configuration</span>
+
+                    <h2 id="registration-form-heading">
+                        Sensor profile
+                    </h2>
+                </div>
+
+                <span class="required-note">
+                    <i aria-hidden="true">*</i>
+                    Required fields
+                </span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="form-notification form-notification-error"
+                     role="alert">
+
+                    <span class="notification-symbol" aria-hidden="true">
+                        !
+                    </span>
+
+                    <div>
+                        <strong>Registration unsuccessful</strong>
+                        <p>@errorMessage</p>
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss error"
+                            @onclick="DismissError">
+                        ×
+                    </button>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="form-notification form-notification-success"
+                     role="status">
+
+                    <span class="notification-symbol" aria-hidden="true">
+                        ✓
+                    </span>
+
+                    <div>
+                        <strong>Sensor registered</strong>
+                        <p>@successMessage</p>
+
+                        @if (registeredSensorId != Guid.Empty)
+                        {
+                            <small>
+                                Profile ID:
+                                <code>@registeredSensorId</code>
+                            </small>
+                        }
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss confirmation"
+                            @onclick="DismissSuccess">
+                        ×
+                    </button>
+                </div>
+            }
+
+            <EditForm Model="@formModel"
+                      OnValidSubmit="@RegisterSensorAsync">
+
+                <DataAnnotationsValidator />
+
+                <div class="validation-summary-wrapper">
+                    <ValidationSummary />
+                </div>
+
+                <fieldset disabled="@isSubmitting">
+                    <div class="form-section">
+                        <div class="form-section-heading">
+                            <span>01</span>
+
+                            <div>
+                                <h3>Device identity</h3>
+                                <p>
+                                    Give the sensor a traceable unique
+                                    identifier and a readable name.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="deviceIdentifier">
+                                    Device identifier
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="deviceIdentifier"
+                                           class="form-control"
+                                           @bind-Value="formModel.DeviceIdentifier"
+                                           placeholder="AA:BB:CC:DD:EE:FF" />
+
+                                <small>
+                                    Enter a MAC address or another unique
+                                    device identifier.
+                                </small>
+
+                                <ValidationMessage For="@(() => formModel.DeviceIdentifier)" />
+                            </div>
+
+                            <div class="form-field">
+                                <label for="displayName">
+                                    Sensor name
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="displayName"
+                                           class="form-control"
+                                           @bind-Value="formModel.DisplayName"
+                                           placeholder="Warehouse Climate Sensor" />
+
+                                <small>
+                                    Use a name operators can recognise
+                                    immediately.
+                                </small>
+
+                                <ValidationMessage For="@(() => formModel.DisplayName)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-heading">
+                            <span>02</span>
+
+                            <div>
+                                <h3>Deployment location</h3>
+                                <p>
+                                    Record where the device operates for
+                                    accurate monitoring and maintenance.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid form-grid-location">
+                            <div class="form-field">
+                                <label for="building">
+                                    Building or site
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="building"
+                                           class="form-control"
+                                           @bind-Value="formModel.Building"
+                                           placeholder="Durban Operations Centre" />
+
+                                <ValidationMessage For="@(() => formModel.Building)" />
+                            </div>
+
+                            <div class="form-field">
+                                <label for="floor">
+                                    Floor or level
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="floor"
+                                           class="form-control"
+                                           @bind-Value="formModel.Floor"
+                                           placeholder="Level 2" />
+
+                                <ValidationMessage For="@(() => formModel.Floor)" />
+                            </div>
+
+                            <div class="form-field">
+                                <label for="zone">
+                                    Zone or room
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="zone"
+                                           class="form-control"
+                                           @bind-Value="formModel.Zone"
+                                           placeholder="Server Room A" />
+
+                                <ValidationMessage For="@(() => formModel.Zone)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-heading">
+                            <span>03</span>
+
+                            <div>
+                                <h3>Telemetry profile</h3>
+                                <p>
+                                    Choose the sensor category and how
+                                    frequently it should publish data.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="category">
+                                    Sensor category
+                                    <span>*</span>
+                                </label>
+
+                                <InputSelect id="category"
+                                             class="form-control"
+                                             @bind-Value="formModel.Category">
+
+                                    <option value="0" disabled>
+                                        Select a category
+                                    </option>
+
+                                    <option value="1">
+                                        Environmental
+                                    </option>
+
+                                    <option value="2">
+                                        Power Consumption
+                                    </option>
+
+                                    <option value="3">
+                                        Actuator
+                                    </option>
+                                </InputSelect>
+
+                                <small>
+                                    Determines the device’s operational
+                                    purpose.
+                                </small>
+
+                                <ValidationMessage For="@(() => formModel.Category)" />
+                            </div>
+
+                            <div class="form-field">
+                                <label for="publishingInterval">
+                                    Publishing interval
+                                    <span>*</span>
+                                </label>
+
+                                <div class="input-with-suffix">
+                                    <InputNumber id="publishingInterval"
+                                                 class="form-control"
+                                                 @bind-Value="formModel.PublishingIntervalSeconds" />
+
+                                    <span>seconds</span>
+                                </div>
+
+                                <small>
+                                    Accepted range: 1 to 86,400 seconds.
+                                </small>
+
+                                <ValidationMessage For="@(() => formModel.PublishingIntervalSeconds)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="reset-button"
+                                type="button"
+                                disabled="@isSubmitting"
+                                @onclick="ResetForm">
+
+                            Clear form
+                        </button>
+
+                        <button class="submit-button"
+                                type="submit"
+                                disabled="@isSubmitting">
+
+                            @if (isSubmitting)
+                            {
+                                <span class="button-spinner"
+                                      aria-hidden="true">
+                                </span>
+
+                                <span>Registering sensor...</span>
+                            }
+                            else
+                            {
+                                <span>Register sensor</span>
+                                <span aria-hidden="true">→</span>
+                            }
+                        </button>
+                    </div>
+                </fieldset>
+            </EditForm>
+        </section>
+
+        <aside class="registration-sidebar">
+            <div class="information-card">
+                <span class="information-label">
+                    Before you connect
+                </span>
+
+                <h2>Registration checklist</h2>
+
+                <ul>
+                    <li>
+                        <span>1</span>
+
+                        <div>
+                            <strong>Confirm identity</strong>
+                            <p>
+                                Use the physical MAC address or another
+                                genuinely unique identifier.
+                            </p>
+                        </div>
+                    </li>
+
+                    <li>
+                        <span>2</span>
+
+                        <div>
+                            <strong>Verify location</strong>
+                            <p>
+                                Record the exact site, level, and operating
+                                zone.
+                            </p>
+                        </div>
+                    </li>
+
+                    <li>
+                        <span>3</span>
+
+                        <div>
+                            <strong>Select category</strong>
+                            <p>
+                                Match the category to the type of telemetry
+                                the device produces.
+                            </p>
+                        </div>
+                    </li>
+
+                    <li>
+                        <span>4</span>
+
+                        <div>
+                            <strong>Choose frequency</strong>
+                            <p>
+                                Use a publishing interval suitable for the
+                                sensor’s workload.
+                            </p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="category-card">
+                <span class="information-label">
+                    Supported categories
+                </span>
+
+                <div class="category-row">
+                    <span class="category-icon environmental-icon">°</span>
+
+                    <div>
+                        <strong>Environmental</strong>
+                        <small>
+                            Temperature, humidity, air quality
+                        </small>
+                    </div>
+                </div>
+
+                <div class="category-row">
+                    <span class="category-icon power-icon">ϟ</span>
+
+                    <div>
+                        <strong>Power Consumption</strong>
+                        <small>
+                            Voltage, current, energy usage
+                        </small>
+                    </div>
+                </div>
+
+                <div class="category-row">
+                    <span class="category-icon actuator-icon">●</span>
+
+                    <div>
+                        <strong>Actuator</strong>
+                        <small>
+                            Switches, relays and device states
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="security-message">
+                <span aria-hidden="true">◆</span>
+
+                <p>
+                    Sensor identities are validated by both the client
+                    interface and the Smart-X API.
+                </p>
+            </div>
+        </aside>
+    </div>
+</section>
+
+@code {
+    private RegisterSensorFormModel formModel = new();
+
+    private bool isSubmitting;
+    private string? errorMessage;
+    private string? successMessage;
+    private Guid registeredSensorId;
+
+    private async Task RegisterSensorAsync()
+    {
+        if (isSubmitting)
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+        successMessage = null;
+        registeredSensorId = Guid.Empty;
+
+        string submittedDisplayName =
+            formModel.DisplayName.Trim();
+
+        string submittedIdentifier =
+            formModel.DeviceIdentifier.Trim();
+
+        RegisterSensorRequest request =
+            new(
+                submittedIdentifier,
+                submittedDisplayName,
+                formModel.Building.Trim(),
+                formModel.Floor.Trim(),
+                formModel.Zone.Trim(),
+                (SensorCategoryOption)formModel.Category,
+                formModel.PublishingIntervalSeconds);
+
+        try
+        {
+            using HttpResponseMessage response =
+                await HttpClient.PostAsJsonAsync(
+                    "api/sensors",
+                    request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage =
+                    await ReadApiErrorAsync(response);
+
+                return;
+            }
+
+            RegisteredSensorResponse? registeredSensor =
+                await response.Content
+                    .ReadFromJsonAsync<RegisteredSensorResponse>();
+
+            if (registeredSensor is not null)
+            {
+                registeredSensorId = registeredSensor.Id;
+            }
+
+            successMessage =
+                $"{submittedDisplayName} " +
+                $"({submittedIdentifier}) is ready to publish telemetry.";
+
+            formModel = new RegisterSensorFormModel();
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage =
+                "Smart-X could not reach the API. Ensure SmartX.Api " +
+                "is running, then try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage =
+                "The registration request timed out. Please try again.";
+        }
+        catch (NotSupportedException)
+        {
+            errorMessage =
+                "The API returned an unsupported response format.";
+        }
+        catch (JsonException)
+        {
+            errorMessage =
+                "The API response could not be read correctly.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private static async Task<string> ReadApiErrorAsync(
+        HttpResponseMessage response)
+    {
+        try
+        {
+            ApiProblemResponse? problem =
+                await response.Content
+                    .ReadFromJsonAsync<ApiProblemResponse>();
+
+            if (problem?.Errors is { Count: > 0 })
+            {
+                string[] messages =
+                    problem.Errors
+                        .SelectMany(entry => entry.Value)
+                        .Where(message =>
+                            !string.IsNullOrWhiteSpace(message))
+                        .Distinct()
+                        .ToArray();
+
+                if (messages.Length > 0)
+                {
+                    return string.Join(" ", messages);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Detail))
+            {
+                return problem.Detail;
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Title))
+            {
+                return problem.Title;
+            }
+        }
+        catch (JsonException)
+        {
+            // A readable fallback is returned below.
+        }
+        catch (NotSupportedException)
+        {
+            // A readable fallback is returned below.
+        }
+
+        return
+            $"The API rejected the registration request " +
+            $"({(int)response.StatusCode} {response.ReasonPhrase}).";
+    }
+
+    private void ResetForm()
+    {
+        formModel = new RegisterSensorFormModel();
+        errorMessage = null;
+        successMessage = null;
+        registeredSensorId = Guid.Empty;
+    }
+
+    private void DismissError()
+    {
+        errorMessage = null;
+    }
+
+    private void DismissSuccess()
+    {
+        successMessage = null;
+        registeredSensorId = Guid.Empty;
+    }
+}

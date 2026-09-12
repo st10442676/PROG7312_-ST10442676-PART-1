@@ -31,8 +31,9 @@
             </span>
         </NavLink>
 
-        <div class="navigation-item navigation-item-disabled"
-             title="Available in the next development step">
+        <NavLink class="navigation-item"
+                 href="sensors/register"
+                 @onclick="CloseMenu">
 
             <span class="navigation-icon" aria-hidden="true">◉</span>
 
@@ -41,8 +42,8 @@
                 <small>Registration and profiles</small>
             </span>
 
-            <span class="soon-badge">Next</span>
-        </div>
+            <span class="live-badge">Live</span>
+        </NavLink>
 
         <div class="navigation-item navigation-item-disabled"
              title="Available in an upcoming development step">
@@ -54,7 +55,7 @@
                 <small>Live measurements</small>
             </span>
 
-            <span class="locked-indicator" aria-label="Coming soon">+</span>
+            <span class="soon-badge">Next</span>
         </div>
 
         <div class="navigation-item navigation-item-disabled"
@@ -78,7 +79,10 @@
 
         <div>
             <strong>Encrypted storage</strong>
-            <p>AES-256 protection is active for uploaded sensor files.</p>
+
+            <p>
+                AES-256 protection is active for uploaded sensor files.
+            </p>
         </div>
     </div>
 
