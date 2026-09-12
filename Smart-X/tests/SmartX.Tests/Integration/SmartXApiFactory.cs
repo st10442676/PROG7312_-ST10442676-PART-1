@@ -5,11 +5,6 @@ using Microsoft.Extensions.Configuration;
 
 namespace SmartX.Tests.Integration;
 
-/// <summary>
-/// Creates an isolated Smart-X API instance for integration testing.
-/// Each factory receives its own temporary attachment directory and
-/// encryption key so that tests never modify production data.
-/// </summary>
 public sealed class SmartXApiFactory : WebApplicationFactory<global::Program>
 {
     private readonly string _storageRoot;
@@ -19,49 +14,47 @@ public sealed class SmartXApiFactory : WebApplicationFactory<global::Program>
     {
         _storageRoot = Path.Combine(
             Path.GetTempPath(),
-            "SmartX",
-            "IntegrationTests",
+            "smartx-integration-tests",
             Guid.NewGuid().ToString("N"));
 
-        _encryptionKey = Convert.ToBase64String(
-            RandomNumberGenerator.GetBytes(32));
+        _encryptionKey =
+            Convert.ToBase64String(
+                RandomNumberGenerator.GetBytes(32));
     }
 
     /// <summary>
-    /// Configures the API with an isolated testing environment.
+    /// Exposes the isolated attachment directory to integration tests.
     /// </summary>
-    /// <param name="builder">
-    /// The web-host builder supplied by WebApplicationFactory.
-    /// </param>
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    public string StorageRoot => _storageRoot;
+
+    protected override void ConfigureWebHost(
+        IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
 
         builder.ConfigureAppConfiguration(
-            (_, configurationBuilder) =>
+            (_, configuration) =>
             {
-                Dictionary<string, string?> testSettings = new()
-                {
-                    ["AttachmentStorage:RootPath"] = _storageRoot,
-                    ["AttachmentStorage:EncryptionKey"] = _encryptionKey
-                };
+                Dictionary<string, string?> settings =
+                    new()
+                    {
+                        ["AttachmentStorage:RootPath"] =
+                            _storageRoot,
 
-                configurationBuilder.AddInMemoryCollection(testSettings);
+                        ["AttachmentStorage:EncryptionKey"] =
+                            _encryptionKey
+                    };
+
+                configuration.AddInMemoryCollection(settings);
             });
     }
 
-    /// <summary>
-    /// Disposes the test server and removes temporary encrypted files
-    /// created during integration testing.
-    /// </summary>
-    /// <param name="disposing">
-    /// Indicates whether managed resources should be disposed.
-    /// </param>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
 
-        if (!disposing || !Directory.Exists(_storageRoot))
+        if (!disposing ||
+            !Directory.Exists(_storageRoot))
         {
             return;
         }
@@ -74,12 +67,11 @@ public sealed class SmartXApiFactory : WebApplicationFactory<global::Program>
         }
         catch (IOException)
         {
-            // A temporary test file may still be releasing its file handle.
-            // Cleanup failure must not hide the actual integration-test result.
+            // A temporary test file may still be releasing its handle.
         }
         catch (UnauthorizedAccessException)
         {
-            // Cleanup failure must not hide the actual integration-test result.
+            // Cleanup failure must not hide the actual test result.
         }
     }
 }

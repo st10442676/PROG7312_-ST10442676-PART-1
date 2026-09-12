@@ -1,7 +1,431 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Smart-X | Sensor Intelligence</PageTitle>
 
-<h1>Hello, world!</h1>
+<section class="hero-section">
+    <div class="hero-copy">
+        <div class="status-pill">
+            <span class="status-pill-dot" aria-hidden="true"></span>
+            Part 1 workspace operational
+        </div>
 
-Welcome to your new app.
+        <p class="eyebrow">Intelligent IoT operations</p>
+
+        <h1>
+            One gateway.
+            <span>Every signal understood.</span>
+        </h1>
+
+        <p class="hero-description">
+            Register connected sensors, ingest strongly typed telemetry,
+            identify unusual readings, and protect supporting files through
+            one secure operational workspace.
+        </p>
+
+        <div class="hero-actions">
+            <a class="button-primary" href="#active-workspace">
+                Enter active workspace
+                <span aria-hidden="true">→</span>
+            </a>
+
+            <a class="button-secondary" href="#platform-pillars">
+                Explore the roadmap
+            </a>
+        </div>
+
+        <div class="hero-trust-row">
+            <div>
+                <strong>AES-256</strong>
+                <span>File encryption</span>
+            </div>
+
+            <div>
+                <strong>3 Types</strong>
+                <span>Generic telemetry</span>
+            </div>
+
+            <div>
+                <strong>Async</strong>
+                <span>API communication</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="gateway-visual" aria-label="Animated Smart-X Gateway Pulse">
+        <div class="visual-grid" aria-hidden="true"></div>
+
+        <div class="pulse-orbit pulse-orbit-outer" aria-hidden="true">
+            <span class="orbit-node orbit-node-one"></span>
+            <span class="orbit-node orbit-node-two"></span>
+        </div>
+
+        <div class="pulse-orbit pulse-orbit-middle" aria-hidden="true">
+            <span class="orbit-node orbit-node-three"></span>
+        </div>
+
+        <div class="pulse-core">
+            <span class="core-label">SMART-X</span>
+            <strong>Gateway</strong>
+
+            <div class="core-status">
+                <span></span>
+                Ready
+            </div>
+        </div>
+
+        <div class="signal-card signal-card-one">
+            <span class="signal-icon">°</span>
+
+            <div>
+                <small>Environmental</small>
+                <strong>24.8 °C</strong>
+            </div>
+        </div>
+
+        <div class="signal-card signal-card-two">
+            <span class="signal-icon">ϟ</span>
+
+            <div>
+                <small>Power usage</small>
+                <strong>1.42 kW</strong>
+            </div>
+        </div>
+
+        <div class="signal-card signal-card-three">
+            <span class="signal-icon">●</span>
+
+            <div>
+                <small>Actuator</small>
+                <strong>Active</strong>
+            </div>
+        </div>
+
+        <div class="pulse-caption">
+            <span></span>
+            Gateway Pulse
+        </div>
+    </div>
+</section>
+
+<section id="platform-pillars"
+         class="pillars-section"
+         aria-labelledby="pillars-heading">
+
+    <div class="section-heading">
+        <div>
+            <p class="eyebrow">Development roadmap</p>
+
+            <h2 id="pillars-heading">
+                Three pillars. One evolving platform.
+            </h2>
+        </div>
+
+        <p>
+            Smart-X grows across the portfolio of evidence.
+            The current submission activates the complete sensor
+            ingestion and telemetry foundation.
+        </p>
+    </div>
+
+    <div class="pillar-grid">
+        <article class="pillar-card pillar-card-active">
+            <div class="pillar-topline">
+                <span class="pillar-number">01</span>
+
+                <span class="availability-badge availability-active">
+                    <span></span>
+                    Active now
+                </span>
+            </div>
+
+            <div class="pillar-symbol pillar-symbol-active" aria-hidden="true">
+                <span class="symbol-wave"></span>
+                <span class="symbol-wave"></span>
+                <span class="symbol-wave"></span>
+            </div>
+
+            <p class="pillar-phase">Part 1 · Current submission</p>
+
+            <h3>Sensor Data Ingestion &amp; Telemetry</h3>
+
+            <p class="pillar-description">
+                Register devices, securely upload supporting evidence,
+                ingest different telemetry data types, and inspect
+                sensor history.
+            </p>
+
+            <ul class="feature-list">
+                <li>
+                    <span>✓</span>
+                    Sensor profile registration
+                </li>
+
+                <li>
+                    <span>✓</span>
+                    Float, integer and Boolean telemetry
+                </li>
+
+                <li>
+                    <span>✓</span>
+                    Encrypted multipart attachments
+                </li>
+
+                <li>
+                    <span>✓</span>
+                    Telemetry history and anomaly insight
+                </li>
+            </ul>
+
+            <a class="pillar-action" href="#active-workspace">
+                Open Part 1 workspace
+                <span aria-hidden="true">↗</span>
+            </a>
+        </article>
+
+        <article class="pillar-card pillar-card-disabled"
+                 aria-disabled="true">
+
+            <div class="pillar-topline">
+                <span class="pillar-number">02</span>
+
+                <span class="availability-badge">
+                    Locked
+                </span>
+            </div>
+
+            <div class="pillar-symbol" aria-hidden="true">
+                <span class="command-line"></span>
+                <span class="command-line"></span>
+                <span class="command-line"></span>
+            </div>
+
+            <p class="pillar-phase">Part 2 · Future release</p>
+
+            <h3>Real-Time Command Stream &amp; History</h3>
+
+            <p class="pillar-description">
+                Dispatch live commands to connected devices and maintain
+                a traceable history of operational instructions.
+            </p>
+
+            <ul class="feature-list feature-list-muted">
+                <li>
+                    <span>○</span>
+                    Live command dispatch
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Command acknowledgement
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Execution history
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Operational audit trail
+                </li>
+            </ul>
+
+            <button class="pillar-action pillar-action-disabled"
+                    type="button"
+                    disabled>
+
+                Available in Part 2
+                <span aria-hidden="true">◇</span>
+            </button>
+        </article>
+
+        <article class="pillar-card pillar-card-disabled"
+                 aria-disabled="true">
+
+            <div class="pillar-topline">
+                <span class="pillar-number">03</span>
+
+                <span class="availability-badge">
+                    Locked
+                </span>
+            </div>
+
+            <div class="pillar-symbol topology-symbol" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <p class="pillar-phase">Final PoE · Future release</p>
+
+            <h3>Network Topology &amp; Mesh Routing</h3>
+
+            <p class="pillar-description">
+                Visualise device relationships, validate deployment
+                hierarchies, and explore resilient mesh-routing paths.
+            </p>
+
+            <ul class="feature-list feature-list-muted">
+                <li>
+                    <span>○</span>
+                    Interactive topology map
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Mesh route discovery
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Recursive hierarchy validation
+                </li>
+
+                <li>
+                    <span>○</span>
+                    Network health analysis
+                </li>
+            </ul>
+
+            <button class="pillar-action pillar-action-disabled"
+                    type="button"
+                    disabled>
+
+                Available in final PoE
+                <span aria-hidden="true">◇</span>
+            </button>
+        </article>
+    </div>
+</section>
+
+<section id="active-workspace"
+         class="workspace-section"
+         aria-labelledby="workspace-heading">
+
+    <div class="workspace-introduction">
+        <p class="eyebrow">Active capability</p>
+
+        <h2 id="workspace-heading">
+            Sensor intelligence workspace
+        </h2>
+
+        <p>
+            The backend foundation is operational. The upcoming
+            interface steps will connect these capabilities to validated,
+            asynchronous client workflows.
+        </p>
+    </div>
+
+    <div class="workspace-dashboard">
+        <div class="workspace-main-card">
+            <div class="workspace-card-header">
+                <div>
+                    <span class="micro-label">Gateway readiness</span>
+                    <h3>Part 1 capability map</h3>
+                </div>
+
+                <span class="readiness-value">Core ready</span>
+            </div>
+
+            <div class="readiness-track" aria-hidden="true">
+                <span></span>
+            </div>
+
+            <div class="capability-list">
+                <div class="capability-row">
+                    <span class="capability-check">✓</span>
+
+                    <div>
+                        <strong>Sensor domain model</strong>
+                        <small>
+                            Validated profiles, identifiers,
+                            locations and categories
+                        </small>
+                    </div>
+
+                    <span class="capability-state">Ready</span>
+                </div>
+
+                <div class="capability-row">
+                    <span class="capability-check">✓</span>
+
+                    <div>
+                        <strong>Generic telemetry engine</strong>
+                        <small>
+                            Strongly typed float, integer and Boolean packets
+                        </small>
+                    </div>
+
+                    <span class="capability-state">Ready</span>
+                </div>
+
+                <div class="capability-row">
+                    <span class="capability-check">✓</span>
+
+                    <div>
+                        <strong>Encrypted attachments</strong>
+                        <small>
+                            Streamed multipart uploads protected with AES-256
+                        </small>
+                    </div>
+
+                    <span class="capability-state">Ready</span>
+                </div>
+
+                <div class="capability-row">
+                    <span class="capability-check capability-check-amber">
+                        →
+                    </span>
+
+                    <div>
+                        <strong>Interactive client workflows</strong>
+                        <small>
+                            Registration, telemetry and visual feedback
+                        </small>
+                    </div>
+
+                    <span class="capability-state capability-state-next">
+                        Next
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <aside class="workspace-side-card">
+            <div class="side-card-glow" aria-hidden="true"></div>
+
+            <span class="micro-label">Unique engagement feature</span>
+
+            <div class="pulse-miniature" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <strong>SX</strong>
+            </div>
+
+            <h3>Gateway Pulse</h3>
+
+            <p>
+                A living visual signal that will react to incoming
+                telemetry and highlight readings requiring attention.
+            </p>
+
+            <div class="pulse-key">
+                <span>
+                    <i class="key-dot key-normal"></i>
+                    Normal
+                </span>
+
+                <span>
+                    <i class="key-dot key-warning"></i>
+                    Attention
+                </span>
+
+                <span>
+                    <i class="key-dot key-danger"></i>
+                    Anomaly
+                </span>
+            </div>
+        </aside>
+    </div>
+</section>
