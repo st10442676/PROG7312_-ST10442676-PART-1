@@ -1,0 +1,17 @@
+﻿<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView
+            RouteData="@routeData"
+            DefaultLayout="@typeof(SmartX.Client.Layout.MainLayout)" />
+
+        <FocusOnNavigate
+            RouteData="@routeData"
+            Selector="h1" />
+    </Found>
+
+    <NotFound>
+        <LayoutView Layout="@typeof(SmartX.Client.Layout.MainLayout)">
+            <SmartX.Client.Components.PageNotFound />
+        </LayoutView>
+    </NotFound>
+</Router>

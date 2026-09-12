@@ -1,0 +1,66 @@
+﻿<section class="not-found-page"
+         aria-labelledby="not-found-heading">
+
+    <div class="not-found-copy">
+        <div class="error-label">
+            <span aria-hidden="true"></span>
+            Navigation signal lost
+        </div>
+
+        <p class="error-code">ERROR 404</p>
+
+        <h1 id="not-found-heading">
+            This node isn’t on the network.
+        </h1>
+
+        <p class="error-description">
+            Smart-X could not locate the requested workspace. The route
+            may have moved, may be unavailable in Part 1, or may have
+            been entered incorrectly.
+        </p>
+
+        <div class="recovery-actions">
+            <a class="button-primary" href="/">
+                Return to overview
+                <span aria-hidden="true">→</span>
+            </a>
+
+            <a class="button-secondary" href="/sensors/register">
+                Register a sensor
+            </a>
+        </div>
+
+        <div class="available-routes">
+            <span>Available Part 1 routes</span>
+
+            <nav aria-label="Available Smart-X routes">
+                <a href="/">Overview</a>
+                <a href="/sensors/register">Sensors</a>
+                <a href="/attachments">Attachments</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="lost-signal-visual" aria-hidden="true">
+        <div class="radar-grid"></div>
+
+        <div class="radar-ring radar-ring-one"></div>
+        <div class="radar-ring radar-ring-two"></div>
+        <div class="radar-ring radar-ring-three"></div>
+
+        <div class="radar-sweep"></div>
+
+        <div class="missing-node">
+            <span>?</span>
+        </div>
+
+        <div class="signal-fragment fragment-one"></div>
+        <div class="signal-fragment fragment-two"></div>
+        <div class="signal-fragment fragment-three"></div>
+
+        <div class="visual-caption">
+            <span></span>
+            Route unavailable
+        </div>
+    </div>
+</section>
