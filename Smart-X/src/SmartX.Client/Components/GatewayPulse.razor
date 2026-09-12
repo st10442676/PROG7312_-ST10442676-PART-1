@@ -1,0 +1,589 @@
+﻿@implements IAsyncDisposable
+
+<section class="pulse-section"
+         id="gateway-pulse-live"
+         aria-labelledby="pulse-heading">
+
+    <div class="pulse-heading">
+        <div>
+            <div class="pulse-badges">
+                <span class="simulation-badge">
+                    <i aria-hidden="true"></i>
+                    Simulation mode
+                </span>
+
+                <span class="research-badge">
+                    Dynamic engagement feature
+                </span>
+            </div>
+
+            <p class="eyebrow">Gateway Pulse laboratory</p>
+
+            <h2 id="pulse-heading">
+                Watch every signal breathe.
+            </h2>
+
+            <p>
+                Gateway Pulse transforms incoming sensor values into
+                immediate visual feedback. Change the signal type or
+                inject an anomaly to observe how the interface responds.
+            </p>
+        </div>
+
+        <div class="signal-selector" aria-label="Select simulated signal">
+            <button class="@GetSignalButtonClass(PulseSignal.Temperature)"
+                    type="button"
+                    aria-pressed="@(selectedSignal == PulseSignal.Temperature)"
+                    @onclick="() => SelectSignal(PulseSignal.Temperature)">
+
+                <span aria-hidden="true">°</span>
+                Temperature
+            </button>
+
+            <button class="@GetSignalButtonClass(PulseSignal.Power)"
+                    type="button"
+                    aria-pressed="@(selectedSignal == PulseSignal.Power)"
+                    @onclick="() => SelectSignal(PulseSignal.Power)">
+
+                <span aria-hidden="true">ϟ</span>
+                Power
+            </button>
+
+            <button class="@GetSignalButtonClass(PulseSignal.Actuator)"
+                    type="button"
+                    aria-pressed="@(selectedSignal == PulseSignal.Actuator)"
+                    @onclick="() => SelectSignal(PulseSignal.Actuator)">
+
+                <span aria-hidden="true">●</span>
+                Actuator
+            </button>
+        </div>
+    </div>
+
+    <div class="pulse-dashboard">
+        <div class="pulse-visual-card @SeverityCssClass">
+            <div class="visual-grid" aria-hidden="true"></div>
+
+            <div class="pulse-orbit pulse-orbit-one" aria-hidden="true">
+                <span></span>
+            </div>
+
+            <div class="pulse-orbit pulse-orbit-two" aria-hidden="true">
+                <span></span>
+            </div>
+
+            <div class="pulse-orbit pulse-orbit-three" aria-hidden="true">
+            </div>
+
+            <div class="pulse-centre">
+                <span class="centre-label">@SignalName</span>
+
+                <strong>@DisplayValue</strong>
+
+                <small>@DisplayUnit</small>
+            </div>
+
+            <div class="visual-status">
+                <span class="visual-status-dot"></span>
+
+                <div>
+                    <small>Signal condition</small>
+                    <strong>@SeverityLabel</strong>
+                </div>
+            </div>
+
+            <div class="visual-update">
+                Updated @lastUpdated.ToString("HH:mm:ss")
+            </div>
+        </div>
+
+        <div class="pulse-information">
+            <div class="information-topline">
+                <div>
+                    <span class="micro-label">Current reading</span>
+                    <h3>@SignalName telemetry</h3>
+                </div>
+
+                <span class="condition-badge @SeverityCssClass">
+                    @SeverityLabel
+                </span>
+            </div>
+
+            <div class="primary-reading">
+                <span>@DisplayValue</span>
+                <small>@DisplayUnit</small>
+            </div>
+
+            <div class="reading-meta-grid">
+                <div>
+                    <span class="meta-icon" aria-hidden="true">
+                        @TrendSymbol
+                    </span>
+
+                    <span>
+                        <small>Trend</small>
+                        <strong>@TrendDescription</strong>
+                    </span>
+                </div>
+
+                <div>
+                    <span class="meta-icon" aria-hidden="true">◎</span>
+
+                    <span>
+                        <small>Samples</small>
+                        <strong>@sampleCount</strong>
+                    </span>
+                </div>
+
+                <div>
+                    <span class="meta-icon" aria-hidden="true">◷</span>
+
+                    <span>
+                        <small>Refresh rate</small>
+                        <strong>2 seconds</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div class="history-panel">
+                <div class="history-heading">
+                    <div>
+                        <span class="micro-label">Recent activity</span>
+                        <strong>Signal history</strong>
+                    </div>
+
+                    <span>Latest 14 samples</span>
+                </div>
+
+                <div class="history-chart"
+                     role="img"
+                     aria-label="Recent simulated signal history">
+
+                    @foreach (int point in history)
+                    {
+                        <span class="@GetBarClass(point)"
+                              style="height: @(point)%">
+                        </span>
+                    }
+                </div>
+
+                <div class="chart-baseline">
+                    <span>Older</span>
+                    <span>Live</span>
+                </div>
+            </div>
+
+            <div class="engagement-actions">
+                <button class="anomaly-button"
+                        type="button"
+                        @onclick="InjectAnomaly">
+
+                    <span aria-hidden="true">!</span>
+                    Inject test anomaly
+                </button>
+
+                <button class="normalise-button"
+                        type="button"
+                        @onclick="RestoreNormal">
+
+                    Restore normal signal
+                </button>
+            </div>
+
+            <p class="simulation-notice">
+                Simulation values demonstrate the interaction design only.
+                Production readings must come from the strongly typed
+                telemetry API.
+            </p>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly CancellationTokenSource componentCancellation = new();
+
+    private readonly List<int> history =
+    [
+        38,
+        44,
+        41,
+        52,
+        49,
+        56,
+        54,
+        61,
+        58,
+        63,
+        60,
+        67,
+        64,
+        70
+    ];
+
+    private PeriodicTimer? animationTimer;
+    private Task? animationTask;
+
+    private PulseSignal selectedSignal = PulseSignal.Temperature;
+    private PulseSeverity severity = PulseSeverity.Normal;
+
+    private double currentValue = 24.8;
+    private double previousValue = 24.2;
+    private bool actuatorIsActive = true;
+    private int sampleCount = 14;
+    private DateTimeOffset lastUpdated = DateTimeOffset.Now;
+
+    private string SignalName =>
+        selectedSignal switch
+        {
+            PulseSignal.Temperature => "Temperature",
+            PulseSignal.Power => "Power consumption",
+            PulseSignal.Actuator => "Actuator state",
+            _ => "Sensor"
+        };
+
+    private string DisplayValue =>
+        selectedSignal switch
+        {
+            PulseSignal.Temperature =>
+                currentValue.ToString("0.0"),
+
+            PulseSignal.Power =>
+                currentValue.ToString("0.00"),
+
+            PulseSignal.Actuator =>
+                actuatorIsActive ? "ON" : "OFF",
+
+            _ =>
+                currentValue.ToString("0.0")
+        };
+
+    private string DisplayUnit =>
+        selectedSignal switch
+        {
+            PulseSignal.Temperature => "°C",
+            PulseSignal.Power => "kW",
+            PulseSignal.Actuator => "Boolean",
+            _ => string.Empty
+        };
+
+    private string SeverityLabel =>
+        severity switch
+        {
+            PulseSeverity.Normal => "Normal",
+            PulseSeverity.Attention => "Attention",
+            PulseSeverity.Anomaly => "Anomaly detected",
+            _ => "Unknown"
+        };
+
+    private string SeverityCssClass =>
+        severity switch
+        {
+            PulseSeverity.Normal => "severity-normal",
+            PulseSeverity.Attention => "severity-attention",
+            PulseSeverity.Anomaly => "severity-anomaly",
+            _ => "severity-normal"
+        };
+
+    private string TrendSymbol =>
+        selectedSignal == PulseSignal.Actuator
+            ? "↔"
+            : currentValue > previousValue
+                ? "↗"
+                : currentValue < previousValue
+                    ? "↘"
+                    : "→";
+
+    private string TrendDescription =>
+        selectedSignal == PulseSignal.Actuator
+            ? actuatorIsActive
+                ? "Active state"
+                : "Inactive state"
+            : currentValue > previousValue
+                ? "Increasing"
+                : currentValue < previousValue
+                    ? "Decreasing"
+                    : "Stable";
+
+    protected override Task OnInitializedAsync()
+    {
+        animationTimer =
+            new PeriodicTimer(
+                TimeSpan.FromSeconds(2));
+
+        animationTask =
+            AnimatePulseAsync(
+                componentCancellation.Token);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task AnimatePulseAsync(
+        CancellationToken cancellationToken)
+    {
+        if (animationTimer is null)
+        {
+            return;
+        }
+
+        try
+        {
+            while (
+                await animationTimer.WaitForNextTickAsync(
+                    cancellationToken))
+            {
+                await InvokeAsync(
+                    () =>
+                    {
+                        GenerateNormalReading();
+                        StateHasChanged();
+                    });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the component is removed from the page.
+        }
+    }
+
+    private void GenerateNormalReading()
+    {
+        previousValue = currentValue;
+
+        switch (selectedSignal)
+        {
+            case PulseSignal.Temperature:
+                currentValue =
+                    22.5 + (Random.Shared.NextDouble() * 5.2);
+
+                severity =
+                    currentValue >= 27
+                        ? PulseSeverity.Attention
+                        : PulseSeverity.Normal;
+
+                AddHistoryPoint(
+                    NormaliseValue(
+                        currentValue,
+                        18,
+                        40));
+
+                break;
+
+            case PulseSignal.Power:
+                currentValue =
+                    0.75 + (Random.Shared.NextDouble() * 2.1);
+
+                severity =
+                    currentValue >= 2.5
+                        ? PulseSeverity.Attention
+                        : PulseSeverity.Normal;
+
+                AddHistoryPoint(
+                    NormaliseValue(
+                        currentValue,
+                        0,
+                        5));
+
+                break;
+
+            case PulseSignal.Actuator:
+                if (Random.Shared.NextDouble() < 0.18)
+                {
+                    actuatorIsActive = !actuatorIsActive;
+                }
+
+                currentValue =
+                    actuatorIsActive ? 1 : 0;
+
+                severity = PulseSeverity.Normal;
+
+                AddHistoryPoint(
+                    actuatorIsActive ? 72 : 28);
+
+                break;
+        }
+
+        sampleCount++;
+        lastUpdated = DateTimeOffset.Now;
+    }
+
+    private void InjectAnomaly()
+    {
+        previousValue = currentValue;
+        severity = PulseSeverity.Anomaly;
+
+        switch (selectedSignal)
+        {
+            case PulseSignal.Temperature:
+                currentValue = 41.7;
+                AddHistoryPoint(96);
+                break;
+
+            case PulseSignal.Power:
+                currentValue = 5.84;
+                AddHistoryPoint(96);
+                break;
+
+            case PulseSignal.Actuator:
+                actuatorIsActive = false;
+                currentValue = 0;
+                AddHistoryPoint(96);
+                break;
+        }
+
+        sampleCount++;
+        lastUpdated = DateTimeOffset.Now;
+    }
+
+    private void RestoreNormal()
+    {
+        switch (selectedSignal)
+        {
+            case PulseSignal.Temperature:
+                currentValue = 24.8;
+                previousValue = 24.6;
+                break;
+
+            case PulseSignal.Power:
+                currentValue = 1.42;
+                previousValue = 1.38;
+                break;
+
+            case PulseSignal.Actuator:
+                actuatorIsActive = true;
+                currentValue = 1;
+                previousValue = 1;
+                break;
+        }
+
+        severity = PulseSeverity.Normal;
+        AddHistoryPoint(55);
+        sampleCount++;
+        lastUpdated = DateTimeOffset.Now;
+    }
+
+    private void SelectSignal(PulseSignal signal)
+    {
+        selectedSignal = signal;
+        severity = PulseSeverity.Normal;
+
+        switch (selectedSignal)
+        {
+            case PulseSignal.Temperature:
+                currentValue = 24.8;
+                previousValue = 24.2;
+                break;
+
+            case PulseSignal.Power:
+                currentValue = 1.42;
+                previousValue = 1.31;
+                break;
+
+            case PulseSignal.Actuator:
+                actuatorIsActive = true;
+                currentValue = 1;
+                previousValue = 1;
+                break;
+        }
+
+        ResetHistory();
+        lastUpdated = DateTimeOffset.Now;
+    }
+
+    private void ResetHistory()
+    {
+        history.Clear();
+
+        for (int index = 0; index < 14; index++)
+        {
+            history.Add(
+                Random.Shared.Next(35, 72));
+        }
+
+        sampleCount = history.Count;
+    }
+
+    private void AddHistoryPoint(int point)
+    {
+        history.Add(
+            Math.Clamp(
+                point,
+                8,
+                100));
+
+        while (history.Count > 14)
+        {
+            history.RemoveAt(0);
+        }
+    }
+
+    private static int NormaliseValue(
+        double value,
+        double minimum,
+        double maximum)
+    {
+        double range = maximum - minimum;
+
+        if (range <= 0)
+        {
+            return 50;
+        }
+
+        double normalised =
+            ((value - minimum) / range) * 100;
+
+        return Math.Clamp(
+            (int)Math.Round(normalised),
+            8,
+            100);
+    }
+
+    private string GetSignalButtonClass(PulseSignal signal)
+    {
+        return selectedSignal == signal
+            ? "signal-button signal-button-active"
+            : "signal-button";
+    }
+
+    private string GetBarClass(int point)
+    {
+        if (severity == PulseSeverity.Anomaly &&
+            point == history[^1])
+        {
+            return "history-bar history-bar-anomaly";
+        }
+
+        if (point >= 75)
+        {
+            return "history-bar history-bar-attention";
+        }
+
+        return "history-bar";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await componentCancellation.CancelAsync();
+
+        if (animationTask is not null)
+        {
+            await animationTask;
+        }
+
+        animationTimer?.Dispose();
+        componentCancellation.Dispose();
+    }
+
+    private enum PulseSignal
+    {
+        Temperature,
+        Power,
+        Actuator
+    }
+
+    private enum PulseSeverity
+    {
+        Normal,
+        Attention,
+        Anomaly
+    }
+}
