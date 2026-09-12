@@ -46,7 +46,7 @@
         </NavLink>
 
         <div class="navigation-item navigation-item-disabled"
-             title="Available in an upcoming development step">
+             title="Telemetry interface deferred">
 
             <span class="navigation-icon" aria-hidden="true">⌁</span>
 
@@ -55,11 +55,12 @@
                 <small>Live measurements</small>
             </span>
 
-            <span class="soon-badge">Next</span>
+            <span class="soon-badge">Deferred</span>
         </div>
 
-        <div class="navigation-item navigation-item-disabled"
-             title="Available in an upcoming development step">
+        <NavLink class="navigation-item"
+                 href="attachments"
+                 @onclick="CloseMenu">
 
             <span class="navigation-icon" aria-hidden="true">▱</span>
 
@@ -68,8 +69,8 @@
                 <small>Encrypted sensor files</small>
             </span>
 
-            <span class="locked-indicator" aria-label="Coming soon">+</span>
-        </div>
+            <span class="live-badge">Live</span>
+        </NavLink>
     </nav>
 
     <div class="sidebar-spacer"></div>

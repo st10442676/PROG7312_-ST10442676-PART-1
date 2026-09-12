@@ -329,3 +329,16 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
+
+
+.live-badge {
+    padding: 0.2rem 0.38rem;
+    border: 1px solid rgba(85, 232, 183, 0.2);
+    border-radius: 7px;
+    color: var(--teal);
+    background: rgba(85, 232, 183, 0.07);
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}

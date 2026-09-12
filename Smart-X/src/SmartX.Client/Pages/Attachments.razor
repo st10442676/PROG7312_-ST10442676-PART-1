@@ -1,0 +1,729 @@
+﻿@page "/attachments"
+
+@using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@using SmartX.Client.Models
+
+@inject HttpClient HttpClient
+
+<PageTitle>Encrypted Attachments | Smart-X</PageTitle>
+
+<section class="attachments-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Secure sensor evidence</p>
+
+            <h1>Upload. Encrypt. Protect.</h1>
+
+            <p>
+                Associate configuration files, installation photographs,
+                and diagnostic logs with a registered sensor. Files are
+                streamed to the API and encrypted before storage.
+            </p>
+        </div>
+
+        <div class="encryption-status">
+            <span class="encryption-symbol" aria-hidden="true">◆</span>
+
+            <span>
+                <strong>AES-256 enabled</strong>
+                <small>Encrypted server-side storage</small>
+            </span>
+        </div>
+    </header>
+
+    <div class="attachments-layout">
+        <section class="upload-card">
+            <div class="card-heading">
+                <div>
+                    <span class="card-label">Multipart upload</span>
+                    <h2>Attach sensor evidence</h2>
+                </div>
+
+                <span class="limit-badge">Maximum 10 MB</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="notification notification-error" role="alert">
+                    <span class="notification-icon" aria-hidden="true">!</span>
+
+                    <div>
+                        <strong>Upload unsuccessful</strong>
+                        <p>@errorMessage</p>
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss error"
+                            @onclick="DismissError">
+                        ×
+                    </button>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="notification notification-success" role="status">
+                    <span class="notification-icon" aria-hidden="true">✓</span>
+
+                    <div>
+                        <strong>Attachment protected</strong>
+                        <p>@successMessage</p>
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss confirmation"
+                            @onclick="DismissSuccess">
+                        ×
+                    </button>
+                </div>
+            }
+
+            <fieldset disabled="@isUploading">
+                <div class="form-section">
+                    <div class="section-number">01</div>
+
+                    <div class="section-content">
+                        <div class="section-heading">
+                            <h3>Registered sensor</h3>
+
+                            <p>
+                                Enter the profile ID returned when the
+                                sensor was registered.
+                            </p>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="sensorId">
+                                Sensor profile ID
+                                <span>*</span>
+                            </label>
+
+                            <input id="sensorId"
+                                   class="form-control"
+                                   type="text"
+                                   placeholder="00000000-0000-0000-0000-000000000000"
+                                   @bind="sensorIdText"
+                                   @bind:event="oninput" />
+
+                            <small>
+                                This must be a valid registered sensor GUID.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-number">02</div>
+
+                    <div class="section-content">
+                        <div class="section-heading">
+                            <h3>Attachment category</h3>
+
+                            <p>
+                                Select the purpose of the supporting file.
+                            </p>
+                        </div>
+
+                        <div class="category-grid">
+                            <label class="category-option">
+                                <input type="radio"
+                                       name="attachmentCategory"
+                                       value="1"
+                                       @onchange="@(() => SelectCategory(1))"
+                                       checked="@(selectedCategory == 1)" />
+
+                                <span class="category-box">
+                                    <i aria-hidden="true">{ }</i>
+                                    <strong>Configuration</strong>
+                                    <small>JSON, XML, TXT or CSV</small>
+                                </span>
+                            </label>
+
+                            <label class="category-option">
+                                <input type="radio"
+                                       name="attachmentCategory"
+                                       value="2"
+                                       @onchange="@(() => SelectCategory(2))"
+                                       checked="@(selectedCategory == 2)" />
+
+                                <span class="category-box">
+                                    <i aria-hidden="true">▧</i>
+                                    <strong>Photo</strong>
+                                    <small>JPG, JPEG or PNG</small>
+                                </span>
+                            </label>
+
+                            <label class="category-option">
+                                <input type="radio"
+                                       name="attachmentCategory"
+                                       value="3"
+                                       @onchange="@(() => SelectCategory(3))"
+                                       checked="@(selectedCategory == 3)" />
+
+                                <span class="category-box">
+                                    <i aria-hidden="true">⌁</i>
+                                    <strong>Diagnostic log</strong>
+                                    <small>LOG or TXT output</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-number">03</div>
+
+                    <div class="section-content">
+                        <div class="section-heading">
+                            <h3>Select the file</h3>
+
+                            <p>
+                                The browser streams the selected file
+                                directly to the secure API.
+                            </p>
+                        </div>
+
+                        <label class="file-drop-area">
+                            <InputFile class="file-input"
+                                       accept=".json,.xml,.txt,.log,.csv,.jpg,.jpeg,.png,application/json,text/plain,image/jpeg,image/png"
+                                       OnChange="HandleFileSelected" />
+
+                            <span class="upload-symbol" aria-hidden="true">
+                                ↑
+                            </span>
+
+                            @if (selectedFile is null)
+                            {
+                                <strong>Choose a sensor attachment</strong>
+
+                                <small>
+                                    Select a supported file of up to 10 MB
+                                </small>
+                            }
+                            else
+                            {
+                                <strong>@selectedFile.Name</strong>
+
+                                <small>
+                                    @FormatFileSize(selectedFile.Size)
+                                    ·
+                                    @selectedFile.ContentType
+                                </small>
+                            }
+                        </label>
+
+                        @if (selectedFile is not null)
+                        {
+                            <div class="selected-file">
+                                <span class="selected-file-icon">
+                                    @SelectedCategoryIcon
+                                </span>
+
+                                <div>
+                                    <strong>@selectedFile.Name</strong>
+
+                                    <small>
+                                        @SelectedCategoryName attachment
+                                    </small>
+                                </div>
+
+                                <button type="button"
+                                        aria-label="Remove selected file"
+                                        @onclick="RemoveSelectedFile">
+                                    ×
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-number">04</div>
+
+                    <div class="section-content">
+                        <div class="section-heading">
+                            <h3>Supporting description</h3>
+
+                            <p>
+                                Add context to help operators understand
+                                the attachment.
+                            </p>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="description">
+                                Description
+                                <span class="optional-label">Optional</span>
+                            </label>
+
+                            <textarea id="description"
+                                      class="form-control description-input"
+                                      maxlength="300"
+                                      placeholder="Explain what this file contains and why it is attached..."
+                                      @bind="description"
+                                      @bind:event="oninput">
+                            </textarea>
+
+                            <small>
+                                @description.Length of 300 characters
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-actions">
+                    <button class="clear-button"
+                            type="button"
+                            disabled="@isUploading"
+                            @onclick="ClearForm">
+
+                        Clear
+                    </button>
+
+                    <button class="upload-button"
+                            type="button"
+                            disabled="@isUploading"
+                            @onclick="UploadAsync">
+
+                        @if (isUploading)
+                        {
+                            <span class="button-spinner"
+                                  aria-hidden="true">
+                            </span>
+
+                            <span>Encrypting upload...</span>
+                        }
+                        else
+                        {
+                            <span>Upload securely</span>
+                            <span aria-hidden="true">◆</span>
+                        }
+                    </button>
+                </div>
+            </fieldset>
+        </section>
+
+        <aside class="attachments-sidebar">
+            <div class="security-card-large">
+                <div class="security-orbit" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <strong>256</strong>
+                </div>
+
+                <span class="card-label">Protection pipeline</span>
+
+                <h2>Encrypted before rest.</h2>
+
+                <p>
+                    Smart-X reads the multipart stream, encrypts its
+                    contents with AES-256, and stores only the protected
+                    representation on disk.
+                </p>
+
+                <div class="pipeline">
+                    <div>
+                        <span>1</span>
+                        <strong>Browser stream</strong>
+                    </div>
+
+                    <i aria-hidden="true">→</i>
+
+                    <div>
+                        <span>2</span>
+                        <strong>API encryption</strong>
+                    </div>
+
+                    <i aria-hidden="true">→</i>
+
+                    <div>
+                        <span>3</span>
+                        <strong>Secure storage</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="recent-card">
+                <div class="recent-heading">
+                    <div>
+                        <span class="card-label">Current session</span>
+                        <h2>Recent uploads</h2>
+                    </div>
+
+                    <span class="upload-count">@recentUploads.Count</span>
+                </div>
+
+                @if (recentUploads.Count == 0)
+                {
+                    <div class="empty-state">
+                        <span aria-hidden="true">▱</span>
+
+                        <p>
+                            Successfully uploaded files will appear here.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <div class="recent-list">
+                        @foreach (
+                                            UploadedAttachmentDisplay upload
+                                            in recentUploads)
+                        {
+                            <div class="recent-item">
+                                <span class="recent-icon">
+                                    @GetCategoryIcon(upload.Category)
+                                </span>
+
+                                <div>
+                                    <strong>@upload.FileName</strong>
+
+                                    <small>
+                                        @upload.Category
+                                        ·
+                                        @upload.FormattedSize
+                                    </small>
+                                </div>
+
+                                <time>
+                                    @upload.UploadedAt.ToLocalTime()
+                                    .ToString("HH:mm")
+                                </time>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </aside>
+    </div>
+</section>
+
+@code {
+    private const long MaximumFileSize = 10 * 1024 * 1024;
+
+    private static readonly HashSet<string> AllowedExtensions =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".json",
+            ".xml",
+            ".txt",
+            ".log",
+            ".csv",
+            ".jpg",
+            ".jpeg",
+            ".png"
+        };
+
+    private readonly List<UploadedAttachmentDisplay> recentUploads = [];
+
+    private string sensorIdText = string.Empty;
+    private string description = string.Empty;
+    private int selectedCategory = 1;
+    private IBrowserFile? selectedFile;
+    private bool isUploading;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private string SelectedCategoryName =>
+        ((AttachmentCategoryOption)selectedCategory) switch
+        {
+            AttachmentCategoryOption.Configuration =>
+                "Configuration",
+
+            AttachmentCategoryOption.Photo =>
+                "Photo",
+
+            AttachmentCategoryOption.DiagnosticLog =>
+                "Diagnostic Log",
+
+            _ =>
+                "Unknown"
+        };
+
+    private string SelectedCategoryIcon =>
+        selectedCategory switch
+        {
+            1 => "{ }",
+            2 => "▧",
+            3 => "⌁",
+            _ => "▱"
+        };
+
+    private void SelectCategory(int category)
+    {
+        selectedCategory = category;
+        errorMessage = null;
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs eventArgs)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        IBrowserFile file = eventArgs.File;
+
+        string extension =
+            Path.GetExtension(file.Name);
+
+        if (!AllowedExtensions.Contains(extension))
+        {
+            selectedFile = null;
+
+            errorMessage =
+                "Unsupported file type. Select a JSON, XML, TXT, LOG, " +
+                "CSV, JPG, JPEG or PNG file.";
+
+            return;
+        }
+
+        if (file.Size <= 0)
+        {
+            selectedFile = null;
+            errorMessage = "The selected file is empty.";
+            return;
+        }
+
+        if (file.Size > MaximumFileSize)
+        {
+            selectedFile = null;
+
+            errorMessage =
+                "The selected file exceeds the 10 MB upload limit.";
+
+            return;
+        }
+
+        selectedFile = file;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (isUploading)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        if (!Guid.TryParse(sensorIdText.Trim(), out Guid sensorId))
+        {
+            errorMessage =
+                "Enter a valid sensor profile ID before uploading.";
+
+            return;
+        }
+
+        if (selectedCategory is < 1 or > 3)
+        {
+            errorMessage = "Select a valid attachment category.";
+            return;
+        }
+
+        if (selectedFile is null)
+        {
+            errorMessage = "Select a file to upload.";
+            return;
+        }
+
+        if (description.Length > 300)
+        {
+            errorMessage =
+                "The description cannot exceed 300 characters.";
+
+            return;
+        }
+
+        isUploading = true;
+
+        string uploadedFileName = selectedFile.Name;
+        long uploadedFileSize = selectedFile.Size;
+        string uploadedCategory = SelectedCategoryName;
+
+        try
+        {
+            await using Stream fileStream =
+                selectedFile.OpenReadStream(MaximumFileSize);
+
+            using MultipartFormDataContent multipartContent = new();
+
+            using StreamContent fileContent =
+                new(fileStream);
+
+            if (
+                MediaTypeHeaderValue.TryParse(
+                    selectedFile.ContentType,
+                    out MediaTypeHeaderValue? mediaType))
+            {
+                fileContent.Headers.ContentType = mediaType;
+            }
+
+            multipartContent.Add(
+                fileContent,
+                "File",
+                selectedFile.Name);
+
+            multipartContent.Add(
+                new StringContent(
+                    selectedCategory.ToString()),
+                "Category");
+
+            multipartContent.Add(
+                new StringContent(
+                    description.Trim()),
+                "Description");
+
+            using HttpResponseMessage response =
+                await HttpClient.PostAsync(
+                    $"api/sensors/{sensorId}/attachments",
+                    multipartContent);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage =
+                    await ReadApiErrorAsync(response);
+
+                return;
+            }
+
+            recentUploads.Insert(
+                0,
+                new UploadedAttachmentDisplay(
+                    uploadedFileName,
+                    uploadedCategory,
+                    uploadedFileSize,
+                    DateTimeOffset.Now));
+
+            successMessage =
+                $"{uploadedFileName} was encrypted and attached " +
+                $"to sensor {sensorId}.";
+
+            selectedFile = null;
+            description = string.Empty;
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage =
+                "Smart-X could not reach the API. Ensure SmartX.Api " +
+                "is running and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage =
+                "The upload request timed out. Please try again.";
+        }
+        catch (IOException)
+        {
+            errorMessage =
+                "The selected file could not be read. Select it again.";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private static async Task<string> ReadApiErrorAsync(
+        HttpResponseMessage response)
+    {
+        try
+        {
+            ApiProblemResponse? problem =
+                await response.Content
+                    .ReadFromJsonAsync<ApiProblemResponse>();
+
+            if (problem?.Errors is { Count: > 0 })
+            {
+                string[] messages =
+                    problem.Errors
+                        .SelectMany(entry => entry.Value)
+                        .Where(message =>
+                            !string.IsNullOrWhiteSpace(message))
+                        .Distinct()
+                        .ToArray();
+
+                if (messages.Length > 0)
+                {
+                    return string.Join(" ", messages);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Detail))
+            {
+                return problem.Detail;
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Title))
+            {
+                return problem.Title;
+            }
+        }
+        catch (JsonException)
+        {
+            // Return the readable fallback below.
+        }
+        catch (NotSupportedException)
+        {
+            // Return the readable fallback below.
+        }
+
+        return
+            $"The API rejected the upload " +
+            $"({(int)response.StatusCode} {response.ReasonPhrase}).";
+    }
+
+    private void RemoveSelectedFile()
+    {
+        selectedFile = null;
+        errorMessage = null;
+    }
+
+    private void ClearForm()
+    {
+        sensorIdText = string.Empty;
+        description = string.Empty;
+        selectedCategory = 1;
+        selectedFile = null;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void DismissError()
+    {
+        errorMessage = null;
+    }
+
+    private void DismissSuccess()
+    {
+        successMessage = null;
+    }
+
+    private static string FormatFileSize(long sizeBytes)
+    {
+        return sizeBytes switch
+        {
+            >= 1_048_576 =>
+                $"{sizeBytes / 1_048_576d:0.00} MB",
+
+            >= 1_024 =>
+                $"{sizeBytes / 1_024d:0.00} KB",
+
+            _ =>
+                $"{sizeBytes} bytes"
+        };
+    }
+
+    private static string GetCategoryIcon(string category)
+    {
+        return category switch
+        {
+            "Configuration" => "{ }",
+            "Photo" => "▧",
+            "Diagnostic Log" => "⌁",
+            _ => "▱"
+        };
+    }
+}
