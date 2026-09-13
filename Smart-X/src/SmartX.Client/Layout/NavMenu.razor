@@ -6,28 +6,30 @@
 
         <div class="brand-copy">
             <strong>SMART-X</strong>
-            <span>IoT Gateway</span>
+            <span>Connected operations</span>
         </div>
     </div>
 
     <div class="environment-label">
         <span></span>
-        Part 1 workspace
+        Part 1 · Live workspace
     </div>
 
     <nav class="navigation" aria-label="Primary navigation">
-        <p class="navigation-heading">Workspace</p>
+        <p class="navigation-heading">Your workspace</p>
 
         <NavLink class="navigation-item"
                  href=""
                  Match="NavLinkMatch.All"
                  @onclick="CloseMenu">
 
-            <span class="navigation-icon" aria-hidden="true">⌂</span>
+            <span class="navigation-icon" aria-hidden="true">
+                ⌂
+            </span>
 
             <span>
                 <strong>Overview</strong>
-                <small>Gateway command centre</small>
+                <small>A clear view of the gateway</small>
             </span>
         </NavLink>
 
@@ -35,38 +37,45 @@
                  href="sensors/register"
                  @onclick="CloseMenu">
 
-            <span class="navigation-icon" aria-hidden="true">◉</span>
+            <span class="navigation-icon" aria-hidden="true">
+                ◉
+            </span>
 
             <span>
                 <strong>Sensors</strong>
-                <small>Registration and profiles</small>
+                <small>Register and manage devices</small>
             </span>
 
             <span class="live-badge">Live</span>
         </NavLink>
 
-        <div class="navigation-item navigation-item-disabled"
-             title="Telemetry interface deferred">
+        <NavLink class="navigation-item"
+                 href="telemetry"
+                 @onclick="CloseMenu">
 
-            <span class="navigation-icon" aria-hidden="true">⌁</span>
+            <span class="navigation-icon" aria-hidden="true">
+                ⌁
+            </span>
 
             <span>
                 <strong>Telemetry</strong>
-                <small>Live measurements</small>
+                <small>Live sensor measurements</small>
             </span>
 
-            <span class="soon-badge">Deferred</span>
-        </div>
+            <span class="live-badge">Live</span>
+        </NavLink>
 
         <NavLink class="navigation-item"
                  href="attachments"
                  @onclick="CloseMenu">
 
-            <span class="navigation-icon" aria-hidden="true">▱</span>
+            <span class="navigation-icon" aria-hidden="true">
+                ▱
+            </span>
 
             <span>
                 <strong>Attachments</strong>
-                <small>Encrypted sensor files</small>
+                <small>Keep sensor files protected</small>
             </span>
 
             <span class="live-badge">Live</span>
@@ -76,13 +85,15 @@
     <div class="sidebar-spacer"></div>
 
     <div class="security-card">
-        <div class="security-icon" aria-hidden="true">◆</div>
+        <div class="security-icon" aria-hidden="true">
+            ◆
+        </div>
 
         <div>
-            <strong>Encrypted storage</strong>
+            <strong>Protected by design</strong>
 
             <p>
-                AES-256 protection is active for uploaded sensor files.
+                Every upload is encrypted before it reaches storage.
             </p>
         </div>
     </div>
