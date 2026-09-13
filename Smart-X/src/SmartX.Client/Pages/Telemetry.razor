@@ -1,0 +1,738 @@
+﻿@page "/telemetry"
+
+@using System.Globalization
+@using System.Net.Http.Json
+@using System.Text.Json
+@using SmartX.Client.Models
+
+@inject HttpClient HttpClient
+
+<PageTitle>Telemetry | Smart-X</PageTitle>
+
+<section class="telemetry-page">
+    <header class="page-heading">
+        <div>
+            <p class="eyebrow">Sensor Data Ingestion</p>
+            <h1>Telemetry console.</h1>
+
+            <p>
+                Submit strongly typed sensor readings and review their
+                ingestion, health classification, and processing latency.
+            </p>
+        </div>
+
+        <div class="heading-status">
+            <span class="heading-status-icon" aria-hidden="true">
+                02
+            </span>
+
+            <span>
+                <strong>Telemetry</strong>
+                <small>Part 1 active workflow</small>
+            </span>
+        </div>
+    </header>
+
+    <div class="telemetry-layout">
+        <section class="telemetry-card">
+            <div class="card-heading">
+                <div>
+                    <span class="card-step">Generic ingestion</span>
+                    <h2>Publish a reading</h2>
+                </div>
+
+                <span class="telemetry-type">
+                    @SelectedTypeName
+                </span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="form-notification form-notification-error"
+                     role="alert">
+
+                    <span class="notification-symbol"
+                          aria-hidden="true">
+                        !
+                    </span>
+
+                    <div>
+                        <strong>Telemetry request unsuccessful</strong>
+                        <p>@errorMessage</p>
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss error"
+                            @onclick="DismissMessages">
+                        ×
+                    </button>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="form-notification form-notification-success"
+                     role="status">
+
+                    <span class="notification-symbol"
+                          aria-hidden="true">
+                        ✓
+                    </span>
+
+                    <div>
+                        <strong>Reading accepted</strong>
+                        <p>@successMessage</p>
+                    </div>
+
+                    <button type="button"
+                            aria-label="Dismiss confirmation"
+                            @onclick="DismissMessages">
+                        ×
+                    </button>
+                </div>
+            }
+
+            <EditForm Model="@formModel"
+                      OnValidSubmit="@SubmitTelemetryAsync">
+
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <fieldset disabled="@isBusy">
+                    <div class="form-section">
+                        <div class="form-section-heading">
+                            <span>01</span>
+
+                            <div>
+                                <h3>Sensor reference</h3>
+                                <p>
+                                    Enter the profile ID returned after
+                                    registering the sensor.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="sensorId">
+                                    Sensor profile ID
+                                    <span>*</span>
+                                </label>
+
+                                <InputText id="sensorId"
+                                           class="form-control"
+                                           @bind-Value="formModel.SensorId"
+                                           placeholder="00000000-0000-0000-0000-000000000000" />
+
+                                <ValidationMessage For="@(() => formModel.SensorId)" />
+                            </div>
+
+                            <div class="form-field">
+                                <label for="sequenceNumber">
+                                    Sequence number
+                                    <span>*</span>
+                                </label>
+
+                                <InputNumber id="sequenceNumber"
+                                             class="form-control"
+                                             @bind-Value="formModel.SequenceNumber" />
+
+                                <ValidationMessage For="@(() => formModel.SequenceNumber)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-heading">
+                            <span>02</span>
+
+                            <div>
+                                <h3>Typed value</h3>
+
+                                <p>
+                                    The generic packet type must match
+                                    the registered sensor data type.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="dataType">
+                                    Data type
+                                    <span>*</span>
+                                </label>
+
+                                <InputSelect id="dataType"
+                                             class="form-control"
+                                             @bind-Value="formModel.DataType">
+
+                                    <option value="1">
+                                        Floating-point
+                                    </option>
+
+                                    <option value="2">
+                                        Integer
+                                    </option>
+
+                                    <option value="3">
+                                        Boolean
+                                    </option>
+                                </InputSelect>
+
+                                <ValidationMessage For="@(() => formModel.DataType)" />
+                            </div>
+
+                            @if (formModel.DataType ==
+                                                        (int)TelemetryDataTypeOption.FloatingPoint)
+                            {
+                                <div class="form-field">
+                                    <label for="floatValue">
+                                        Floating-point value
+                                        <span>*</span>
+                                    </label>
+
+                                    <InputNumber id="floatValue"
+                                                 class="form-control"
+                                                 @bind-Value="formModel.FloatingPointValue" />
+
+                                    <small>
+                                        Example: 24.8
+                                    </small>
+                                </div>
+                            }
+                            else if (formModel.DataType ==
+                            (int)TelemetryDataTypeOption.Integer)
+                            {
+                                <div class="form-field">
+                                    <label for="integerValue">
+                                        Integer value
+                                        <span>*</span>
+                                    </label>
+
+                                    <InputNumber id="integerValue"
+                                                 class="form-control"
+                                                 @bind-Value="formModel.IntegerValue" />
+
+                                    <small>
+                                        Example: 42
+                                    </small>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-field">
+                                    <label class="checkbox-field">
+                                        <InputCheckbox @bind-Value="formModel.BooleanValue" />
+
+                                        <span>
+                                            Boolean value is
+                                            <strong>
+                                                @(formModel.BooleanValue
+                                                                                            ? "True"
+                                                                                            : "False")
+                                        </strong>
+                                    </span>
+                                </label>
+                            </div>
+                                                        }
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button"
+                                class="reset-button"
+                                disabled="@isBusy"
+                                @onclick="LoadHistoryAsync">
+
+                            Refresh history
+                        </button>
+
+                        <button type="submit"
+                                class="submit-button"
+                                disabled="@isBusy">
+
+                            @if (isSubmitting)
+                            {
+                                <span class="button-spinner"
+                                      aria-hidden="true">
+                                </span>
+
+                                <span>Publishing...</span>
+                            }
+                            else
+                            {
+                                <span>Publish reading</span>
+                                <span aria-hidden="true">→</span>
+                            }
+                        </button>
+                    </div>
+                </fieldset>
+            </EditForm>
+        </section>
+
+        <aside class="telemetry-summary">
+            <div class="information-card">
+                <span class="information-label">
+                    Live summary
+                </span>
+
+                <h2>Ingestion status</h2>
+
+                <dl>
+                    <div>
+                        <dt>Total readings</dt>
+                        <dd>@readings.Count</dd>
+                    </div>
+
+                    <div>
+                        <dt>Normal</dt>
+                        <dd>@NormalReadingCount</dd>
+                    </div>
+
+                    <div>
+                        <dt>Flagged</dt>
+                        <dd>@FlaggedReadingCount</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="security-message">
+                <span aria-hidden="true">◆</span>
+
+                <p>
+                    Numeric readings outside the sensor’s registered
+                    range are automatically marked as out of range.
+                </p>
+            </div>
+        </aside>
+    </div>
+
+    <section class="telemetry-history">
+        <div class="card-heading">
+            <div>
+                <span class="card-step">Processed packets</span>
+                <h2>Telemetry history</h2>
+            </div>
+
+            @if (isLoadingHistory)
+            {
+                <span>Loading...</span>
+            }
+        </div>
+
+        @if (readings.Count == 0)
+        {
+            <div class="empty-state">
+                <strong>No telemetry loaded</strong>
+
+                <p>
+                    Enter a sensor profile ID and select
+                    <em>Refresh history</em>, or publish a new reading.
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sequence</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Health</th>
+                            <th>Ingestion</th>
+                            <th>Latency</th>
+                            <th>Received</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (TelemetryDisplayRow reading in readings)
+                        {
+                            <tr class="@(reading.IsFlagged
+                                                                ? "telemetry-alert-row"
+                                                                : null)">
+
+                        <td>#@reading.SequenceNumber</td>
+                        <td>@reading.ValueType</td>
+                        <td>
+                            <strong>@reading.Value</strong>
+                            <small>@reading.Unit</small>
+                        </td>
+                        <td>
+                            <span class="status-chip">
+                                @reading.HealthState
+                            </span>
+                        </td>
+                        <td>@reading.IngestionState</td>
+                        <td>
+                            @reading.LatencyMilliseconds.ToString("0.00")
+                            ms
+                        </td>
+                        <td>
+                            @reading.ReceivedAtUtc
+                            .ToLocalTime()
+                            .ToString("dd MMM HH:mm:ss")
+                        </td>
+                    </tr>
+                                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</section>
+
+@code {
+    private TelemetrySubmissionFormModel formModel = new();
+
+    private IReadOnlyList<TelemetryDisplayRow> readings =
+        Array.Empty<TelemetryDisplayRow>();
+
+    private bool isSubmitting;
+    private bool isLoadingHistory;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private bool isBusy =>
+        isSubmitting || isLoadingHistory;
+
+    private string SelectedTypeName =>
+        formModel.DataType switch
+        {
+            (int)TelemetryDataTypeOption.FloatingPoint =>
+                "float",
+
+            (int)TelemetryDataTypeOption.Integer =>
+                "integer",
+
+            (int)TelemetryDataTypeOption.Boolean =>
+                "Boolean",
+
+            _ => "unknown"
+        };
+
+    private int NormalReadingCount =>
+        readings.Count(reading =>
+            string.Equals(
+                reading.HealthState,
+                "Normal",
+                StringComparison.OrdinalIgnoreCase));
+
+    private int FlaggedReadingCount =>
+        readings.Count(reading =>
+            reading.IsFlagged);
+
+    private async Task SubmitTelemetryAsync()
+    {
+        if (isBusy ||
+            !TryGetSensorId(out Guid sensorId))
+        {
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            DateTimeOffset capturedAtUtc =
+                DateTimeOffset.UtcNow;
+
+            using HttpResponseMessage response =
+                await PostTypedReadingAsync(
+                    sensorId,
+                    capturedAtUtc);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage =
+                    await ReadApiErrorAsync(response);
+
+                return;
+            }
+
+            successMessage =
+                $"Sequence {formModel.SequenceNumber} was accepted " +
+                $"as {SelectedTypeName} telemetry.";
+
+            formModel.SequenceNumber++;
+
+            await LoadHistoryCoreAsync(sensorId);
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage =
+                "Smart-X could not reach the API. Ensure SmartX.Api " +
+                "is running and try again.";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage =
+                "The telemetry request timed out. Please try again.";
+        }
+        catch (JsonException)
+        {
+            errorMessage =
+                "The API telemetry response could not be read.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private Task<HttpResponseMessage> PostTypedReadingAsync(
+        Guid sensorId,
+        DateTimeOffset capturedAtUtc)
+    {
+        string route =
+            $"api/sensors/{sensorId:D}/telemetry";
+
+        return formModel.DataType switch
+        {
+            (int)TelemetryDataTypeOption.FloatingPoint =>
+                HttpClient.PostAsJsonAsync(
+                    $"{route}/float",
+                    new TelemetrySubmissionRequest<float>(
+                        formModel.SequenceNumber,
+                        Convert.ToSingle(
+                            formModel.FloatingPointValue,
+                            CultureInfo.InvariantCulture),
+                        capturedAtUtc)),
+
+            (int)TelemetryDataTypeOption.Integer =>
+                HttpClient.PostAsJsonAsync(
+                    $"{route}/integer",
+                    new TelemetrySubmissionRequest<int>(
+                        formModel.SequenceNumber,
+                        formModel.IntegerValue,
+                        capturedAtUtc)),
+
+            (int)TelemetryDataTypeOption.Boolean =>
+                HttpClient.PostAsJsonAsync(
+                    $"{route}/boolean",
+                    new TelemetrySubmissionRequest<bool>(
+                        formModel.SequenceNumber,
+                        formModel.BooleanValue,
+                        capturedAtUtc)),
+
+            _ => throw new InvalidOperationException(
+                "The selected telemetry data type is invalid.")
+        };
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (isBusy ||
+            !TryGetSensorId(out Guid sensorId))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await LoadHistoryCoreAsync(sensorId);
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage =
+                "Smart-X could not reach the API or locate the sensor.";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage =
+                "The history request timed out. Please try again.";
+        }
+        catch (JsonException)
+        {
+            errorMessage =
+                "The telemetry history response could not be read.";
+        }
+    }
+
+    private async Task LoadHistoryCoreAsync(Guid sensorId)
+    {
+        isLoadingHistory = true;
+
+        try
+        {
+            string route =
+                $"api/sensors/{sensorId:D}/telemetry";
+
+            using HttpResponseMessage response =
+                await HttpClient.GetAsync(route);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage =
+                    await ReadApiErrorAsync(response);
+
+                return;
+            }
+
+            SensorTelemetryHistoryResponse? history =
+                await response.Content
+                    .ReadFromJsonAsync<SensorTelemetryHistoryResponse>();
+
+            readings =
+                history is null
+                    ? Array.Empty<TelemetryDisplayRow>()
+                    : MapHistory(history);
+        }
+        finally
+        {
+            isLoadingHistory = false;
+        }
+    }
+
+    private bool TryGetSensorId(out Guid sensorId)
+    {
+        if (Guid.TryParse(
+                formModel.SensorId.Trim(),
+                out sensorId) &&
+            sensorId != Guid.Empty)
+        {
+            return true;
+        }
+
+        errorMessage =
+            "Enter a valid sensor profile identifier.";
+
+        return false;
+    }
+
+    private static IReadOnlyList<TelemetryDisplayRow> MapHistory(
+        SensorTelemetryHistoryResponse history)
+    {
+        IEnumerable<TelemetryDisplayRow> floatingPointRows =
+            history.FloatingPointReadings.Select(
+                reading =>
+                    new TelemetryDisplayRow(
+                        reading.SequenceNumber,
+                        reading.Value.ToString(
+                            CultureInfo.InvariantCulture),
+                        reading.Unit,
+                        reading.ValueType,
+                        reading.HealthState,
+                        reading.IngestionState,
+                        reading.IngestionLatencyMilliseconds,
+                        reading.ReceivedAtUtc));
+
+        IEnumerable<TelemetryDisplayRow> integerRows =
+            history.IntegerReadings.Select(
+                reading =>
+                    new TelemetryDisplayRow(
+                        reading.SequenceNumber,
+                        reading.Value.ToString(
+                            CultureInfo.InvariantCulture),
+                        reading.Unit,
+                        reading.ValueType,
+                        reading.HealthState,
+                        reading.IngestionState,
+                        reading.IngestionLatencyMilliseconds,
+                        reading.ReceivedAtUtc));
+
+        IEnumerable<TelemetryDisplayRow> booleanRows =
+            history.BooleanReadings.Select(
+                reading =>
+                    new TelemetryDisplayRow(
+                        reading.SequenceNumber,
+                        reading.Value ? "True" : "False",
+                        reading.Unit,
+                        reading.ValueType,
+                        reading.HealthState,
+                        reading.IngestionState,
+                        reading.IngestionLatencyMilliseconds,
+                        reading.ReceivedAtUtc));
+
+        return floatingPointRows
+            .Concat(integerRows)
+            .Concat(booleanRows)
+            .OrderByDescending(reading =>
+                reading.ReceivedAtUtc)
+            .ToList();
+    }
+
+    private static async Task<string> ReadApiErrorAsync(
+        HttpResponseMessage response)
+    {
+        try
+        {
+            ApiProblemResponse? problem =
+                await response.Content
+                    .ReadFromJsonAsync<ApiProblemResponse>();
+
+            if (problem?.Errors is { Count: > 0 })
+            {
+                string[] messages =
+                    problem.Errors
+                        .SelectMany(error => error.Value)
+                        .Where(message =>
+                            !string.IsNullOrWhiteSpace(message))
+                        .Distinct()
+                        .ToArray();
+
+                if (messages.Length > 0)
+                {
+                    return string.Join(" ", messages);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Detail))
+            {
+                return problem.Detail;
+            }
+
+            if (!string.IsNullOrWhiteSpace(problem?.Title))
+            {
+                return problem.Title;
+            }
+        }
+        catch (JsonException)
+        {
+            // The fallback message below will be used.
+        }
+        catch (NotSupportedException)
+        {
+            // The fallback message below will be used.
+        }
+
+        return
+            $"The API rejected the request " +
+            $"({(int)response.StatusCode} {response.ReasonPhrase}).";
+    }
+
+    private void DismissMessages()
+    {
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private sealed record TelemetryDisplayRow(
+        int SequenceNumber,
+        string Value,
+        string Unit,
+        string ValueType,
+        string HealthState,
+        string IngestionState,
+        double LatencyMilliseconds,
+        DateTimeOffset ReceivedAtUtc)
+    {
+        public bool IsFlagged =>
+            string.Equals(
+                HealthState,
+                "OutOfRange",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                IngestionState,
+                "Flagged",
+                StringComparison.OrdinalIgnoreCase);
+    }
+}
