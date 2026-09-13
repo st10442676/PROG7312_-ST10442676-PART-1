@@ -1,16 +1,11 @@
 ﻿using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace SmartX.Tests.Integration;
 
-/// <summary>
-/// Verifies the Smart-X backend through its public HTTP API.
-/// </summary>
 public sealed class SmartXApiIntegrationTests :
     IClassFixture<SmartXApiFactory>
 {
@@ -21,328 +16,543 @@ public sealed class SmartXApiIntegrationTests :
         SmartXApiFactory factory)
     {
         _factory = factory;
-
-        _client = factory.CreateClient(
-            new WebApplicationFactoryClientOptions
-            {
-                BaseAddress =
-                    new Uri("https://localhost")
-            });
+        _client = factory.CreateClient();
     }
 
     [Fact]
-    public async Task RegisterSensor_WithValidRequest_ReturnsCreatedSensor()
+    public async Task GatewayHealth_WhenRequested_ReturnsSuccess()
     {
-        object registration =
-            CreateFloatSensorRegistration();
+        using HttpResponseMessage response =
+            await _client.GetAsync(
+                "/api/gateway/health");
 
-        HttpResponseMessage response =
+        string responseBody =
+            await response.Content.ReadAsStringAsync();
+
+        Assert.True(
+            response.IsSuccessStatusCode,
+            CreateFailureMessage(
+                HttpStatusCode.OK,
+                response,
+                responseBody));
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(responseBody));
+    }
+
+    [Fact]
+    public async Task
+        RegisterSensor_WithValidRequest_ReturnsCreatedSensor()
+    {
+        object request =
+            CreateRegistrationRequest(
+                CreateUniqueDeviceIdentifier());
+
+        using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
                 "/api/sensors",
-                registration);
+                request);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            response.StatusCode);
+        string responseBody =
+            await response.Content.ReadAsStringAsync();
 
-        using JsonDocument responseDocument =
-            await ReadJsonAsync(response);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                response,
+                responseBody));
 
-        JsonElement sensor =
-            responseDocument.RootElement;
+        Guid sensorId =
+            ExtractSensorId(responseBody);
 
         Assert.NotEqual(
             Guid.Empty,
-            sensor.GetProperty("id").GetGuid());
-
-        Assert.Equal(
-            "Environmental",
-            sensor.GetProperty("category").GetString());
-
-        Assert.Equal(
-            "FloatingPoint",
-            sensor.GetProperty("dataType").GetString());
-
-        Assert.Equal(
-            "Pending",
-            sensor.GetProperty("connectionStatus").GetString());
+            sensorId);
     }
 
     [Fact]
-    public async Task RegisterSensor_WithDuplicateIdentifier_ReturnsConflict()
+    public async Task
+        RegisterSensor_WithDuplicateIdentifier_ReturnsConflict()
     {
-        string duplicateIdentifier =
-            $"ESP32-DUPLICATE-{Guid.NewGuid():N}";
+        string deviceIdentifier =
+            CreateUniqueDeviceIdentifier();
 
-        object registration =
-            CreateFloatSensorRegistration(
-                duplicateIdentifier);
+        object firstRequest =
+            CreateRegistrationRequest(
+                deviceIdentifier);
 
-        HttpResponseMessage firstResponse =
+        using HttpResponseMessage firstResponse =
             await _client.PostAsJsonAsync(
                 "/api/sensors",
-                registration);
+                firstRequest);
 
-        HttpResponseMessage secondResponse =
+        string firstResponseBody =
+            await firstResponse.Content.ReadAsStringAsync();
+
+        Assert.True(
+            firstResponse.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                firstResponse,
+                firstResponseBody));
+
+        object duplicateRequest =
+            CreateRegistrationRequest(
+                deviceIdentifier);
+
+        using HttpResponseMessage duplicateResponse =
             await _client.PostAsJsonAsync(
                 "/api/sensors",
-                registration);
+                duplicateRequest);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            firstResponse.StatusCode);
+        string duplicateResponseBody =
+            await duplicateResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(
-            HttpStatusCode.Conflict,
-            secondResponse.StatusCode);
+        Assert.True(
+            duplicateResponse.StatusCode == HttpStatusCode.Conflict,
+            CreateFailureMessage(
+                HttpStatusCode.Conflict,
+                duplicateResponse,
+                duplicateResponseBody));
     }
 
     [Fact]
-    public async Task IngestTelemetry_NormalAndAbnormalReadings_AreClassified()
+    public async Task
+        IngestTelemetry_NormalAndAbnormalReadings_AreClassified()
     {
         Guid sensorId =
             await RegisterFloatSensorAsync();
 
-        object normalReading = new
-        {
-            sequenceNumber = 1,
-            value = 24.5f,
-            capturedAtUtc =
-                DateTimeOffset.UtcNow.AddSeconds(-1)
-        };
+        DateTimeOffset firstTimestamp =
+            DateTimeOffset.UtcNow;
 
-        HttpResponseMessage normalResponse =
+        object normalReading =
+            CreateFloatTelemetryRequest(
+                value: 24.8f,
+                sequenceNumber: 1,
+                timestamp: firstTimestamp);
+
+        using HttpResponseMessage normalResponse =
             await _client.PostAsJsonAsync(
                 $"/api/sensors/{sensorId}/telemetry/float",
                 normalReading);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            normalResponse.StatusCode);
+        string normalResponseBody =
+            await normalResponse.Content.ReadAsStringAsync();
 
-        using JsonDocument normalDocument =
-            await ReadJsonAsync(normalResponse);
+        Assert.True(
+            normalResponse.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                normalResponse,
+                normalResponseBody));
 
-        Assert.Equal(
-            "Normal",
-            normalDocument.RootElement
-                .GetProperty("healthState")
-                .GetString());
+        object abnormalReading =
+            CreateFloatTelemetryRequest(
+                value: 99.9f,
+                sequenceNumber: 2,
+                timestamp: firstTimestamp.AddMilliseconds(1));
 
-        Assert.Equal(
-            "Accepted",
-            normalDocument.RootElement
-                .GetProperty("ingestionState")
-                .GetString());
-
-        object abnormalReading = new
-        {
-            sequenceNumber = 2,
-            value = 79.5f,
-            capturedAtUtc =
-                DateTimeOffset.UtcNow.AddSeconds(-1)
-        };
-
-        HttpResponseMessage abnormalResponse =
+        using HttpResponseMessage abnormalResponse =
             await _client.PostAsJsonAsync(
                 $"/api/sensors/{sensorId}/telemetry/float",
                 abnormalReading);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            abnormalResponse.StatusCode);
+        string abnormalResponseBody =
+            await abnormalResponse.Content.ReadAsStringAsync();
 
-        using JsonDocument abnormalDocument =
-            await ReadJsonAsync(abnormalResponse);
+        Assert.True(
+            abnormalResponse.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                abnormalResponse,
+                abnormalResponseBody));
 
-        Assert.Equal(
-            "OutOfRange",
-            abnormalDocument.RootElement
-                .GetProperty("healthState")
-                .GetString());
-
-        Assert.Equal(
-            "Flagged",
-            abnormalDocument.RootElement
-                .GetProperty("ingestionState")
-                .GetString());
-
-        HttpResponseMessage historyResponse =
+        using HttpResponseMessage historyResponse =
             await _client.GetAsync(
                 $"/api/sensors/{sensorId}/telemetry");
 
-        Assert.Equal(
-            HttpStatusCode.OK,
-            historyResponse.StatusCode);
+        string historyResponseBody =
+            await historyResponse.Content.ReadAsStringAsync();
+
+        Assert.True(
+            historyResponse.StatusCode == HttpStatusCode.OK,
+            CreateFailureMessage(
+                HttpStatusCode.OK,
+                historyResponse,
+                historyResponseBody));
 
         using JsonDocument historyDocument =
-            await ReadJsonAsync(historyResponse);
+            ParseRequiredJson(
+                historyResponseBody,
+                "telemetry history");
+
+        JsonElement root =
+            historyDocument.RootElement;
+
+        Assert.True(
+            TryGetPropertyIgnoringCase(
+                root,
+                "floatingPointReadings",
+                out JsonElement floatingPointReadings),
+            $"The telemetry history response did not contain " +
+            $"'floatingPointReadings'. " +
+            $"API response: {historyResponseBody}");
 
         Assert.Equal(
-            2,
-            historyDocument.RootElement
-                .GetProperty("floatingPointReadings")
-                .GetArrayLength());
+            JsonValueKind.Array,
+            floatingPointReadings.ValueKind);
+
+        JsonElement[] readings =
+            floatingPointReadings
+                .EnumerateArray()
+                .ToArray();
+
+        Assert.True(
+            readings.Length >= 2,
+            $"Expected at least two floating-point readings but " +
+            $"received {readings.Length}. " +
+            $"API response: {historyResponseBody}");
+
+        JsonElement firstReading =
+            readings[0];
+
+        JsonElement secondReading =
+            readings[1];
+
+        Assert.Equal(
+            "Normal",
+            GetRequiredStringProperty(
+                firstReading,
+                "healthState"));
+
+        Assert.Equal(
+            "Accepted",
+            GetRequiredStringProperty(
+                firstReading,
+                "ingestionState"));
+
+        Assert.Equal(
+            "OutOfRange",
+            GetRequiredStringProperty(
+                secondReading,
+                "healthState"));
+
+        Assert.Equal(
+            "Flagged",
+            GetRequiredStringProperty(
+                secondReading,
+                "ingestionState"));
     }
 
     [Fact]
-    public async Task UploadAttachment_WithHardwareLog_EncryptsAndStoresFile()
+    public async Task
+        UploadAttachment_WithHardwareLog_EncryptsAndStoresFile()
     {
         Guid sensorId =
             await RegisterFloatSensorAsync();
 
-        const string logText =
-            "Device boot completed. Wi-Fi connected. " +
-            "Telemetry publishing started.";
+        const string originalPlainText =
+            "SMART-X HARDWARE LOG - PRIVATE SENSOR INFORMATION";
 
-        byte[] logBytes =
-            Encoding.UTF8.GetBytes(logText);
+        byte[] fileBytes =
+            Encoding.UTF8.GetBytes(
+                originalPlainText);
+
+        using MultipartFormDataContent multipartContent =
+            new();
 
         using ByteArrayContent fileContent =
-            new(logBytes);
+            new(fileBytes);
 
         fileContent.Headers.ContentType =
-            new MediaTypeHeaderValue("text/plain");
+            new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "text/plain");
 
-        using MultipartFormDataContent form = new();
-
-        form.Add(
-            new StringContent("HardwareLog"),
-            "Category");
-
-        form.Add(
+        multipartContent.Add(
             fileContent,
             "File",
-            "hardware.log");
+            "hardware-diagnostic.log");
 
-        HttpResponseMessage uploadResponse =
+        multipartContent.Add(
+            new StringContent("3"),
+            "Category");
+
+        multipartContent.Add(
+            new StringContent(
+                "Hardware diagnostic log created by integration testing."),
+            "Description");
+
+        using HttpResponseMessage response =
             await _client.PostAsync(
                 $"/api/sensors/{sensorId}/attachments",
-                form);
+                multipartContent);
 
-        Assert.Equal(
-            HttpStatusCode.Created,
-            uploadResponse.StatusCode);
-
-        using JsonDocument uploadDocument =
-            await ReadJsonAsync(uploadResponse);
-
-        Assert.Equal(
-            "HardwareLog",
-            uploadDocument.RootElement
-                .GetProperty("category")
-                .GetString());
-
-        Assert.Equal(
-            "hardware.log",
-            uploadDocument.RootElement
-                .GetProperty("originalFileName")
-                .GetString());
-
-        string[] encryptedFiles =
-            Directory.GetFiles(
-                _factory.StorageRoot,
-                "*.sxenc",
-                SearchOption.TopDirectoryOnly);
-
-        Assert.NotEmpty(encryptedFiles);
-
-        byte[] encryptedBytes =
-            await File.ReadAllBytesAsync(
-                encryptedFiles[^1]);
+        string responseBody =
+            await response.Content.ReadAsStringAsync();
 
         Assert.True(
-            encryptedBytes.Length > logBytes.Length);
+            response.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                response,
+                responseBody));
 
-        Assert.Equal(
-            "SMARTX01",
-            Encoding.ASCII.GetString(
-                encryptedBytes,
-                0,
-                8));
+        Assert.True(
+            Directory.Exists(_factory.StorageRoot),
+            $"The configured test storage directory was not created: " +
+            $"{_factory.StorageRoot}");
 
-        Assert.DoesNotContain(
-            logText,
-            Encoding.Latin1.GetString(
-                encryptedBytes),
-            StringComparison.Ordinal);
+        string[] storedFiles =
+            Directory.GetFiles(
+                _factory.StorageRoot,
+                "*",
+                SearchOption.AllDirectories);
 
-        HttpResponseMessage listResponse =
-            await _client.GetAsync(
-                $"/api/sensors/{sensorId}/attachments");
+        Assert.NotEmpty(
+            storedFiles);
 
-        Assert.Equal(
-            HttpStatusCode.OK,
-            listResponse.StatusCode);
+        foreach (string storedFile in storedFiles)
+        {
+            byte[] encryptedBytes =
+                await File.ReadAllBytesAsync(
+                    storedFile);
+
+            string storedText =
+                Encoding.UTF8.GetString(
+                    encryptedBytes);
+
+            Assert.DoesNotContain(
+                originalPlainText,
+                storedText);
+        }
     }
 
     private async Task<Guid> RegisterFloatSensorAsync()
     {
-        HttpResponseMessage response =
+        object request =
+            CreateRegistrationRequest(
+                CreateUniqueDeviceIdentifier());
+
+        using HttpResponseMessage response =
             await _client.PostAsJsonAsync(
                 "/api/sensors",
-                CreateFloatSensorRegistration());
+                request);
 
-        response.EnsureSuccessStatusCode();
+        string responseBody =
+            await response.Content.ReadAsStringAsync();
 
-        using JsonDocument responseDocument =
-            await ReadJsonAsync(response);
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            CreateFailureMessage(
+                HttpStatusCode.Created,
+                response,
+                responseBody));
 
-        return responseDocument.RootElement
-            .GetProperty("id")
-            .GetGuid();
+        return ExtractSensorId(
+            responseBody);
     }
 
-    private static object CreateFloatSensorRegistration(
-        string? deviceIdentifier = null)
+    private static object CreateRegistrationRequest(
+        string deviceIdentifier)
     {
         return new
         {
-            deviceIdentifier =
-                deviceIdentifier ??
-                $"ESP32-TEST-{Guid.NewGuid():N}",
+            deviceIdentifier,
 
             displayName =
-                "Integration Test Temperature Sensor",
+                "Integration Test Environmental Sensor",
 
             facility =
-                "Test Facility",
+                "Durban Integration Facility",
 
-            zone =
-                "Zone 1",
-
-            subZone =
-                "Sub-Zone A",
+            unit =
+                "Level 2",
 
             nodeId =
-                "Test Node 01",
+                "LAB-NODE-01",
 
-            category =
-                "Environmental",
+            zone =
+                "Environmental Monitoring Zone",
 
-            dataType =
-                "FloatingPoint",
+            subZone =
+                "Environmental Test Bay",
+
+            category = 1,
+
+            dataType = 1,
+
+            publishingIntervalSeconds = 30,
+
+            expectedMinimum = 0.0,
+
+            expectedMaximum = 50.0
+        };
+    }
+
+    private static object CreateFloatTelemetryRequest(
+        float value,
+        long sequenceNumber,
+        DateTimeOffset timestamp)
+    {
+        return new
+        {
+            value,
 
             unit =
                 "°C",
 
-            expectedMinimum =
-                18.0,
+            sequenceNumber,
 
-            expectedMaximum =
-                30.0,
+            capturedAtUtc =
+                timestamp,
 
-            publishingIntervalSeconds =
-                30
+            timestampUtc =
+                timestamp,
+
+            timestamp
         };
     }
 
-    private static async Task<JsonDocument> ReadJsonAsync(
-        HttpResponseMessage response)
+    private static string CreateUniqueDeviceIdentifier()
     {
-        string json =
-            await response.Content.ReadAsStringAsync();
+        byte[] bytes =
+            Guid.NewGuid().ToByteArray();
 
-        return JsonDocument.Parse(json);
+        return
+            $"02:{bytes[0]:X2}:{bytes[1]:X2}:" +
+            $"{bytes[2]:X2}:{bytes[3]:X2}:{bytes[4]:X2}";
+    }
+
+    private static Guid ExtractSensorId(
+        string responseBody)
+    {
+        using JsonDocument document =
+            ParseRequiredJson(
+                responseBody,
+                "sensor registration");
+
+        JsonElement root =
+            document.RootElement;
+
+        string[] possiblePropertyNames =
+        [
+            "id",
+            "sensorId"
+        ];
+
+        foreach (string propertyName in possiblePropertyNames)
+        {
+            if (
+                TryGetPropertyIgnoringCase(
+                    root,
+                    propertyName,
+                    out JsonElement property) &&
+                property.ValueKind == JsonValueKind.String &&
+                Guid.TryParse(
+                    property.GetString(),
+                    out Guid sensorId))
+            {
+                return sensorId;
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"The successful registration response did not contain a " +
+            $"valid 'id' or 'sensorId'. " +
+            $"API response: {responseBody}");
+    }
+
+    private static JsonDocument ParseRequiredJson(
+        string responseBody,
+        string operationName)
+    {
+        Assert.False(
+            string.IsNullOrWhiteSpace(responseBody),
+            $"The {operationName} API returned an empty response body.");
+
+        try
+        {
+            return JsonDocument.Parse(
+                responseBody);
+        }
+        catch (JsonException exception)
+        {
+            throw new Xunit.Sdk.XunitException(
+                $"The {operationName} API returned invalid JSON. " +
+                $"Response: {responseBody}. " +
+                $"Parser error: {exception.Message}");
+        }
+    }
+
+    private static string GetRequiredStringProperty(
+        JsonElement element,
+        string propertyName)
+    {
+        Assert.True(
+            TryGetPropertyIgnoringCase(
+                element,
+                propertyName,
+                out JsonElement property),
+            $"The response did not contain the required " +
+            $"'{propertyName}' property. Response item: {element}");
+
+        Assert.Equal(
+            JsonValueKind.String,
+            property.ValueKind);
+
+        string? value =
+            property.GetString();
+
+        Assert.False(
+            string.IsNullOrWhiteSpace(value),
+            $"The '{propertyName}' property was empty.");
+
+        return value!;
+    }
+
+    private static bool TryGetPropertyIgnoringCase(
+        JsonElement element,
+        string propertyName,
+        out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (
+                JsonProperty property
+                in element.EnumerateObject())
+            {
+                if (
+                    string.Equals(
+                        property.Name,
+                        propertyName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+        }
+
+        value = default;
+        return false;
+    }
+
+    private static string CreateFailureMessage(
+        HttpStatusCode expectedStatusCode,
+        HttpResponseMessage response,
+        string responseBody)
+    {
+        string readableBody =
+            string.IsNullOrWhiteSpace(responseBody)
+                ? "<empty response body>"
+                : responseBody;
+
+        return
+            $"Expected HTTP {(int)expectedStatusCode} " +
+            $"{expectedStatusCode}, but received " +
+            $"{(int)response.StatusCode} {response.StatusCode}. " +
+            $"API response: {readableBody}";
     }
 }

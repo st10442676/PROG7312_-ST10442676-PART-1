@@ -17,7 +17,10 @@ public sealed class SensorsController : ControllerBase
     public SensorsController(
         ISensorProfileRepository sensorRepository)
     {
-        _sensorRepository = sensorRepository;
+        _sensorRepository =
+            sensorRepository
+            ?? throw new ArgumentNullException(
+                nameof(sensorRepository));
     }
 
     /// <summary>
@@ -38,7 +41,8 @@ public sealed class SensorsController : ControllerBase
 
         List<SensorProfileResponse> response =
             sensors
-                .Select(SensorProfileResponse.FromDomain)
+                .Select(
+                    SensorProfileResponse.FromDomain)
                 .ToList();
 
         return Ok(response);
@@ -67,16 +71,26 @@ public sealed class SensorsController : ControllerBase
             return NotFound(
                 new ProblemDetails
                 {
-                    Title = "Sensor profile not found",
+                    Title =
+                        "Sensor profile not found",
+
                     Detail =
-                        $"No sensor profile exists with identifier '{id}'.",
-                    Status = StatusCodes.Status404NotFound,
-                    Instance = HttpContext.Request.Path
+                        $"No sensor profile exists with " +
+                        $"identifier '{id}'.",
+
+                    Status =
+                        StatusCodes.Status404NotFound,
+
+                    Instance =
+                        HttpContext.Request.Path
                 });
         }
 
-        return Ok(
-            SensorProfileResponse.FromDomain(sensor));
+        SensorProfileResponse response =
+            SensorProfileResponse.FromDomain(
+                sensor);
+
+        return Ok(response);
     }
 
     /// <summary>
@@ -138,11 +152,14 @@ public sealed class SensorsController : ControllerBase
             }
 
             SensorProfileResponse response =
-                SensorProfileResponse.FromDomain(sensor);
+                SensorProfileResponse.FromDomain(
+                    sensor);
 
-            return CreatedAtAction(
-                nameof(GetByIdAsync),
-                new { id = sensor.Id },
+            string sensorLocation =
+                $"/api/sensors/{sensor.Id:D}";
+
+            return Created(
+                sensorLocation,
                 response);
         }
         catch (ArgumentException exception)
@@ -151,20 +168,32 @@ public sealed class SensorsController : ControllerBase
                 "sensor",
                 exception.Message);
 
-            return ValidationProblem(ModelState);
+            return ValidationProblem(
+                ModelState);
         }
     }
 
+    /// <summary>
+    /// Creates a consistent conflict response for a duplicate
+    /// sensor identifier.
+    /// </summary>
     private ProblemDetails CreateDuplicateSensorProblem(
         string deviceIdentifier)
     {
         return new ProblemDetails
         {
-            Title = "Duplicate sensor identifier",
+            Title =
+                "Duplicate sensor identifier",
+
             Detail =
-                $"A sensor using '{deviceIdentifier}' is already registered.",
-            Status = StatusCodes.Status409Conflict,
-            Instance = HttpContext.Request.Path
+                $"A sensor using '{deviceIdentifier}' " +
+                $"is already registered.",
+
+            Status =
+                StatusCodes.Status409Conflict,
+
+            Instance =
+                HttpContext.Request.Path
         };
     }
 }
