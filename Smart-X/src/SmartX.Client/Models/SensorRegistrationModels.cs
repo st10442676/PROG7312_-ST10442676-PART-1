@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 namespace SmartX.Client.Models;
 
 /// <summary>
-/// Sensor category values matching the Smart-X domain categories.
-/// Explicit numeric values ensure compatibility with the API enum.
+/// Sensor categories supported by the Smart-X API.
+/// Numeric values match the domain enum.
 /// </summary>
 public enum SensorCategoryOption
 {
@@ -15,7 +15,19 @@ public enum SensorCategoryOption
 }
 
 /// <summary>
-/// Contains and validates values entered into the sensor-registration form.
+/// Telemetry value types supported by the Smart-X API.
+/// Numeric values match the domain enum.
+/// </summary>
+public enum TelemetryDataTypeOption
+{
+    FloatingPoint = 1,
+    Integer = 2,
+    Boolean = 3
+}
+
+/// <summary>
+/// Contains and validates values entered into the
+/// sensor-registration form.
 /// </summary>
 public sealed class RegisterSensorFormModel
 {
@@ -78,33 +90,107 @@ public sealed class RegisterSensorFormModel
 }
 
 /// <summary>
-/// Request sent to the Smart-X sensor-registration endpoint.
+/// Request sent to the Smart-X sensor-registration API.
+///
+/// This constructor accepts the existing registration-page values
+/// and expands them into the complete API contract.
 /// </summary>
-public sealed record RegisterSensorRequest(
-    [property: JsonPropertyName("deviceIdentifier")]
-    string DeviceIdentifier,
+public sealed class RegisterSensorRequest
+{
+    public RegisterSensorRequest(
+        string deviceIdentifier,
+        string displayName,
+        string building,
+        string floor,
+        string zone,
+        SensorCategoryOption category,
+        int publishingIntervalSeconds)
+    {
+        DeviceIdentifier = deviceIdentifier;
+        DisplayName = displayName;
 
-    [property: JsonPropertyName("displayName")]
-    string DisplayName,
+        Facility = building;
+        Zone = zone;
+        SubZone = floor;
+        NodeId = deviceIdentifier;
 
-    [property: JsonPropertyName("building")]
-    string Building,
+        Category = category;
 
-    [property: JsonPropertyName("floor")]
-    string Floor,
+        DataType =
+            category == SensorCategoryOption.Actuator
+                ? TelemetryDataTypeOption.Boolean
+                : TelemetryDataTypeOption.FloatingPoint;
 
-    [property: JsonPropertyName("zone")]
-    string Zone,
+        Unit =
+            category switch
+            {
+                SensorCategoryOption.Environmental => "°C",
+                SensorCategoryOption.PowerConsumption => "kWh",
+                SensorCategoryOption.Actuator => "state",
+                _ => "unit"
+            };
 
-    [property: JsonPropertyName("category")]
-    SensorCategoryOption Category,
+        if (DataType == TelemetryDataTypeOption.Boolean)
+        {
+            ExpectedMinimum = null;
+            ExpectedMaximum = null;
+        }
+        else if (category ==
+                 SensorCategoryOption.PowerConsumption)
+        {
+            ExpectedMinimum = 0;
+            ExpectedMaximum = 100_000;
+        }
+        else
+        {
+            ExpectedMinimum = -50;
+            ExpectedMaximum = 100;
+        }
 
-    [property: JsonPropertyName("publishingIntervalSeconds")]
-    int PublishingIntervalSeconds);
+        PublishingIntervalSeconds =
+            publishingIntervalSeconds;
+    }
+
+    [JsonPropertyName("deviceIdentifier")]
+    public string DeviceIdentifier { get; }
+
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; }
+
+    [JsonPropertyName("facility")]
+    public string Facility { get; }
+
+    [JsonPropertyName("zone")]
+    public string Zone { get; }
+
+    [JsonPropertyName("subZone")]
+    public string SubZone { get; }
+
+    [JsonPropertyName("nodeId")]
+    public string NodeId { get; }
+
+    [JsonPropertyName("category")]
+    public SensorCategoryOption Category { get; }
+
+    [JsonPropertyName("dataType")]
+    public TelemetryDataTypeOption DataType { get; }
+
+    [JsonPropertyName("unit")]
+    public string Unit { get; }
+
+    [JsonPropertyName("expectedMinimum")]
+    public double? ExpectedMinimum { get; }
+
+    [JsonPropertyName("expectedMaximum")]
+    public double? ExpectedMaximum { get; }
+
+    [JsonPropertyName("publishingIntervalSeconds")]
+    public int PublishingIntervalSeconds { get; }
+}
 
 /// <summary>
-/// Minimum response information required after successful registration.
-/// Additional API response fields are safely ignored by the JSON parser.
+/// Minimum response required after successful registration.
+/// Additional API response properties are ignored.
 /// </summary>
 public sealed class RegisteredSensorResponse
 {
@@ -112,14 +198,16 @@ public sealed class RegisteredSensorResponse
     public Guid Id { get; init; }
 
     [JsonPropertyName("deviceIdentifier")]
-    public string DeviceIdentifier { get; init; } = string.Empty;
+    public string DeviceIdentifier { get; init; } =
+        string.Empty;
 
     [JsonPropertyName("displayName")]
-    public string DisplayName { get; init; } = string.Empty;
+    public string DisplayName { get; init; } =
+        string.Empty;
 }
 
 /// <summary>
-/// Represents RFC 7807 validation or API problem information.
+/// Represents an API validation or problem-details response.
 /// </summary>
 public sealed class ApiProblemResponse
 {
