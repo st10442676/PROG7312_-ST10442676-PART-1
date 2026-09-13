@@ -18,64 +18,99 @@ public sealed class AttachmentsController : ControllerBase
         11 * 1024 * 1024;
 
     private readonly ISensorProfileRepository _sensorRepository;
-    private readonly IEncryptedAttachmentStorage _attachmentStorage;
+
+    private readonly IEncryptedAttachmentStorage
+        _attachmentStorage;
+
+    private readonly ILogger<AttachmentsController>
+        _logger;
+
+    private readonly IHostEnvironment _environment;
 
     public AttachmentsController(
         ISensorProfileRepository sensorRepository,
-        IEncryptedAttachmentStorage attachmentStorage)
+        IEncryptedAttachmentStorage attachmentStorage,
+        ILogger<AttachmentsController> logger,
+        IHostEnvironment environment)
     {
-        _sensorRepository = sensorRepository;
-        _attachmentStorage = attachmentStorage;
+        _sensorRepository =
+            sensorRepository
+            ?? throw new ArgumentNullException(
+                nameof(sensorRepository));
+
+        _attachmentStorage =
+            attachmentStorage
+            ?? throw new ArgumentNullException(
+                nameof(attachmentStorage));
+
+        _logger =
+            logger
+            ?? throw new ArgumentNullException(
+                nameof(logger));
+
+        _environment =
+            environment
+            ?? throw new ArgumentNullException(
+                nameof(environment));
     }
 
     /// <summary>
-    /// Uploads and encrypts an attachment for a registered sensor.
+    /// Uploads, validates and encrypts an attachment for a
+    /// registered Smart-X sensor.
     /// </summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSizeBytes)]
     [ProducesResponseType<SensorAttachmentResponse>(
         StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+        StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(
+        StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<SensorAttachmentResponse>>
         UploadAsync(
             Guid sensorId,
             [FromForm] UploadSensorAttachmentRequest request,
             CancellationToken cancellationToken)
     {
-        SensorProfile? sensor =
-            await _sensorRepository.GetByIdAsync(
-                sensorId,
-                cancellationToken);
-
-        if (sensor is null)
-        {
-            return NotFound(
-                CreateSensorNotFoundProblem(sensorId));
-        }
-
-        if (request.File is null)
-        {
-            ModelState.AddModelError(
-                nameof(request.File),
-                "An attachment file is required.");
-
-            return ValidationProblem(ModelState);
-        }
-
-        if (request.File.Length == 0)
-        {
-            ModelState.AddModelError(
-                nameof(request.File),
-                "The attachment file cannot be empty.");
-
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
+            SensorProfile? sensor =
+                await _sensorRepository.GetByIdAsync(
+                    sensorId,
+                    cancellationToken);
+
+            if (sensor is null)
+            {
+                return NotFound(
+                    CreateSensorNotFoundProblem(
+                        sensorId));
+            }
+
+            if (request.File is null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.File),
+                    "An attachment file is required.");
+
+                return ValidationProblem(
+                    ModelState);
+            }
+
+            if (request.File.Length == 0)
+            {
+                ModelState.AddModelError(
+                    nameof(request.File),
+                    "The attachment file cannot be empty.");
+
+                return ValidationProblem(
+                    ModelState);
+            }
+
             await using Stream content =
                 request.File.OpenReadStream();
 
@@ -93,9 +128,11 @@ public sealed class AttachmentsController : ControllerBase
                 SensorAttachmentResponse.FromDomain(
                     attachment);
 
-            return CreatedAtAction(
-                nameof(GetAllAsync),
-                new { sensorId },
+            string attachmentLocation =
+                $"/api/sensors/{sensorId:D}/attachments";
+
+            return Created(
+                attachmentLocation,
                 response);
         }
         catch (InvalidDataException exception)
@@ -104,7 +141,8 @@ public sealed class AttachmentsController : ControllerBase
                 nameof(request.File),
                 exception.Message);
 
-            return ValidationProblem(ModelState);
+            return ValidationProblem(
+                ModelState);
         }
         catch (ArgumentException exception)
         {
@@ -112,7 +150,39 @@ public sealed class AttachmentsController : ControllerBase
                 "attachment",
                 exception.Message);
 
-            return ValidationProblem(ModelState);
+            return ValidationProblem(
+                ModelState);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Encrypted attachment upload failed for sensor {SensorId}.",
+                sensorId);
+
+            string detail =
+                _environment.IsDevelopment() ||
+                _environment.IsEnvironment("Testing")
+                    ? exception.ToString()
+                    : "The encrypted attachment could not be stored.";
+
+            return Problem(
+                title:
+                    "Encrypted attachment storage failed",
+
+                detail:
+                    detail,
+
+                statusCode:
+                    StatusCodes.Status500InternalServerError,
+
+                instance:
+                    HttpContext.Request.Path);
         }
     }
 
@@ -123,7 +193,8 @@ public sealed class AttachmentsController : ControllerBase
     [ProducesResponseType<
         IReadOnlyList<SensorAttachmentResponse>>(
         StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
     public async Task<
         ActionResult<IReadOnlyList<SensorAttachmentResponse>>>
         GetAllAsync(
@@ -138,11 +209,13 @@ public sealed class AttachmentsController : ControllerBase
         if (sensor is null)
         {
             return NotFound(
-                CreateSensorNotFoundProblem(sensorId));
+                CreateSensorNotFoundProblem(
+                    sensorId));
         }
 
         IReadOnlyList<SensorAttachment> attachments =
-            _attachmentStorage.GetBySensor(sensorId);
+            _attachmentStorage.GetBySensor(
+                sensorId);
 
         List<SensorAttachmentResponse> response =
             attachments
@@ -150,7 +223,8 @@ public sealed class AttachmentsController : ControllerBase
                     SensorAttachmentResponse.FromDomain)
                 .ToList();
 
-        return Ok(response);
+        return Ok(
+            response);
     }
 
     private ProblemDetails CreateSensorNotFoundProblem(
@@ -158,11 +232,18 @@ public sealed class AttachmentsController : ControllerBase
     {
         return new ProblemDetails
         {
-            Title = "Sensor profile not found",
+            Title =
+                "Sensor profile not found",
+
             Detail =
-                $"No sensor profile exists with identifier '{sensorId}'.",
-            Status = StatusCodes.Status404NotFound,
-            Instance = HttpContext.Request.Path
+                $"No sensor profile exists with " +
+                $"identifier '{sensorId}'.",
+
+            Status =
+                StatusCodes.Status404NotFound,
+
+            Instance =
+                HttpContext.Request.Path
         };
     }
 }
